@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+.message-bubble {
+  @apply p-3 rounded-lg max-w-xs;
+}
+
+.server-message {
+  @apply bg-primary-100 text-gray-800 rounded-tr-lg rounded-br-lg rounded-bl-lg;
+}
+
+.user-message {
+  @apply bg-primary-500 text-white rounded-tl-lg rounded-bl-lg rounded-br-lg;
+} 

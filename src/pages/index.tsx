@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 
 // Define message type for admin UI
@@ -28,6 +28,8 @@ export default function Home() {
   const [currentChannelId, setCurrentChannelId] = useState<string>('general');
   const [channelActive, setChannelActive] = useState<boolean>(false);
   const [messageContent, setMessageContent] = useState<string>('');
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [userScrolled, setUserScrolled] = useState<boolean>(false);
 
   // Auto-initialize the Socket.IO server on component mount
   useEffect(() => {
@@ -55,6 +57,31 @@ export default function Home() {
 
     initServer();
   }, []);
+
+  // Function to scroll to bottom of messages
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  // Detect when user scrolls the messages container
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      // Consider user scrolled if they're not at the bottom (with a small buffer)
+      const isAtBottom = scrollHeight
+       - scrollTop - clientHeight < 50;
+      setUserScrolled(!isAtBottom);
+    }
+  };
+
+  // Scroll to bottom when messages change, unless user has scrolled up
+  useEffect(() => {
+    if (!userScrolled) {
+      scrollToBottom();
+    }
+  }, [messages, userScrolled]);
 
   // Function to periodically fetch messages and participants data
   useEffect(() => {
@@ -95,7 +122,6 @@ export default function Home() {
     }
   };
 
-      // messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
   // Function to handle channel changes
   const handleChannelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentChannelId(e.target.value);
@@ -265,7 +291,11 @@ export default function Home() {
             </div>
 
             {/* Messages - Simple fixed height container with scroll */}
-            <div className="p-3 overflow-y-auto h-[500px]">
+            <div 
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="p-3 overflow-y-auto h-[500px]"
+            >
               <div className="space-y-3">
                 {messages.length > 0 ? (
                   messages.map((message: Message) => (
@@ -308,13 +338,23 @@ export default function Home() {
                   type="text"
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSendMessage();
+                      // Reset userScrolled when user sends a message
+                      setUserScrolled(false);
+                    }
+                  }}
                   placeholder="Type a message as Admin..."
                   className="block w-full rounded-md border-2 border-gray-400 text-sm py-2 px-3 h-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   disabled={serverStatus !== 'running' || !channelActive}
                 />
                 <button
-                  onClick={handleSendMessage}
+                  onClick={() => {
+                    handleSendMessage();
+                    // Reset userScrolled when user sends a message
+                    setUserScrolled(false);
+                  }}
                   className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
                   disabled={serverStatus !== 'running' || !channelActive || !messageContent.trim()}
                 >

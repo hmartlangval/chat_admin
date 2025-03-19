@@ -27,6 +27,7 @@ export default function Home() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [currentChannelId, setCurrentChannelId] = useState<string>('general');
   const [channelActive, setChannelActive] = useState<boolean>(false);
+  const [messageContent, setMessageContent] = useState<string>('');
 
   // Auto-initialize the Socket.IO server on component mount
   useEffect(() => {
@@ -117,6 +118,36 @@ export default function Home() {
       }
     } catch (err) {
       console.error(`Error during ${operation} channel:`, err);
+    }
+  };
+
+  // Function to send a message from the admin interface
+  const handleSendMessage = async () => {
+    if (!messageContent.trim() || !currentChannelId || serverStatus !== 'running') return;
+    
+    try {
+      // Call API endpoint to send message
+      const response = await fetch(`/api/channels/${currentChannelId}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: messageContent,
+          sender: 'Admin',
+        }),
+      });
+      
+      if (response.ok) {
+        // Clear the input after sending
+        setMessageContent('');
+        // Refresh messages
+        fetchChannelData();
+      } else {
+        console.error('Failed to send message:', await response.text());
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
     }
   };
 
@@ -270,10 +301,25 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Admin message - not for sending, just for display */}
-            <div className="border-t p-2">
-              <div className="text-xs text-gray-500 italic text-center">
-                This is a monitoring view only. Messages are sent from bot clients.
+            {/* Admin message - make it editable for sending messages with improved styling */}
+            <div className="border-t p-3">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Type a message as Admin..."
+                  className="block w-full rounded-md border-2 border-gray-400 text-sm py-2 px-3 h-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  disabled={serverStatus !== 'running' || !channelActive}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
+                  disabled={serverStatus !== 'running' || !channelActive || !messageContent.trim()}
+                >
+                  Send
+                </button>
               </div>
             </div>
           </div>

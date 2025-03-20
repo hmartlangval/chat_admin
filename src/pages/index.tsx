@@ -37,7 +37,7 @@ export default function Home() {
       try {
         // Call the auto-init endpoint
         const response = await fetch('/api/auto-init');
-        
+
         if (response.ok) {
           setServerStatus('running');
           setErrorMessage(null);
@@ -71,7 +71,7 @@ export default function Home() {
       const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
       // Consider user scrolled if they're not at the bottom (with a small buffer)
       const isAtBottom = scrollHeight
-       - scrollTop - clientHeight < 50;
+        - scrollTop - clientHeight < 50;
       setUserScrolled(!isAtBottom);
     }
   };
@@ -86,15 +86,15 @@ export default function Home() {
   // Function to periodically fetch messages and participants data
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-    
+
     if (serverStatus === 'running') {
       // Initial fetch
       fetchChannelData();
-      
+
       // Set up interval to fetch every 2 seconds
       intervalId = setInterval(fetchChannelData, 2000);
     }
-    
+
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
@@ -110,7 +110,7 @@ export default function Home() {
         setParticipants(channelData.participants || []);
         setChannelActive(channelData.active || false);
       }
-      
+
       // Fetch channel messages
       const messagesResponse = await fetch(`/api/channels/${currentChannelId}/messages`);
       if (messagesResponse.ok) {
@@ -133,7 +133,7 @@ export default function Home() {
       const response = await fetch(`/api/channels/${currentChannelId}/${operation}`, {
         method: 'POST'
       });
-      
+
       if (response.ok) {
         setChannelActive(operation === 'start');
         // Refresh data
@@ -147,10 +147,29 @@ export default function Home() {
     }
   };
 
+  // Function to clear chat history
+  const handleClearChat = async () => {
+    try {
+      const response = await fetch(`/api/channels/${currentChannelId}/clear`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        // Refresh data to show empty chat
+        fetchChannelData();
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to clear chat:', errorText);
+      }
+    } catch (err) {
+      console.error('Error clearing chat:', err);
+    }
+  };
+
   // Function to send a message from the admin interface
   const handleSendMessage = async () => {
     if (!messageContent.trim() || !currentChannelId || serverStatus !== 'running') return;
-    
+
     try {
       // Call API endpoint to send message
       const response = await fetch(`/api/channels/${currentChannelId}/sendMessage`, {
@@ -163,7 +182,7 @@ export default function Home() {
           sender: 'Admin',
         }),
       });
-      
+
       if (response.ok) {
         // Clear the input after sending
         setMessageContent('');
@@ -218,7 +237,7 @@ export default function Home() {
                     <code>cd bots/server-bot && npm start</code>
                   </p>
                 </div>
-                
+
                 <div className="border-l-2 border-green-500 pl-2">
                   <h3 className="font-medium text-gray-800">User Bot</h3>
                   <p className="text-gray-600 text-xs">
@@ -270,6 +289,12 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex space-x-2 ml-2">
+                <button
+                  onClick={handleClearChat}
+                  className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500"
+                >
+                  Clear Chat
+                </button>
                 {channelActive ? (
                   <button
                     onClick={() => handleChannelOperation('stop')}
@@ -291,7 +316,7 @@ export default function Home() {
             </div>
 
             {/* Messages - Simple fixed height container with scroll */}
-            <div 
+            <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
               className="p-3 overflow-y-auto h-[500px]"
@@ -301,18 +326,16 @@ export default function Home() {
                   messages.map((message: Message) => (
                     <div
                       key={message.id}
-                      className={`flex ${
-                        message.senderId === 'system' ? 'justify-center' : 'justify-start'
-                      }`}
+                      className={`flex ${message.senderId === 'system' ? 'justify-center' : 'justify-start'
+                        }`}
                     >
                       <div
-                        className={`rounded-md px-3 py-2 ${
-                          message.senderId === 'system'
+                        className={`rounded-md px-3 py-2 ${message.senderId === 'system'
                             ? 'bg-gray-100 text-gray-800 text-xs max-w-md mx-auto'
                             : message.senderType === 'server'
-                            ? 'bg-blue-50 text-gray-800 max-w-3xl'
-                            : 'bg-green-50 text-gray-800 max-w-3xl'
-                        }`}
+                              ? 'bg-blue-50 text-gray-800 max-w-3xl'
+                              : 'bg-green-50 text-gray-800 max-w-3xl'
+                          }`}
                       >
                         {message.senderId !== 'system' ? (
                           <div className="text-sm whitespace-pre-line">
@@ -335,6 +358,7 @@ export default function Home() {
             <div className="border-t p-3">
               <div className="flex items-center space-x-2">
                 <input
+                  id="messageInput"
                   type="text"
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}

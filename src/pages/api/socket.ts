@@ -5,7 +5,9 @@ import type { Socket } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import { promises as fsPromises } from 'fs';
-import { createChatMessage } from '../../utils/messageProcessor';
+import { createChatMessage, processMessage } from '../../utils/messageProcessor';
+// The MessageRepository is now imported and used within messageProcessor.ts
+// import { MessageRepository } from '../../data/models/Message';
 
 // Augment the response type to include custom socket properties
 type SocketIONextApiResponse = NextApiResponse & {
@@ -76,6 +78,9 @@ interface SharedDataMetadata {
 const sharedDataStore = new Map<string, SharedData>();
 // Make data store available globally
 (global as any).sharedDataStore = sharedDataStore;
+
+// The message repository instance is now created and managed within messageProcessor.ts
+// const messageRepository = new MessageRepository();
 
 // Ensure data directory exists
 const DATA_DIR = path.join(process.cwd(), 'shared_data');
@@ -263,7 +268,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       });
 
       // Chat message
-      socket.on('message', (message: { channelId: string; content: string }) => {
+      socket.on('message', async (message: { channelId: string; content: string }) => {
         console.log(`Message from ${socket.data.name || socket.id}:`, message.content);
         
         const channelId = message.channelId;
@@ -300,17 +305,16 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           });
         }
         
-        // Create the enriched message using the shared utility
-        const enrichedMessage = createChatMessage(
+        // Use the unified message processing function
+        const enrichedMessage = await processMessage(
           channelId,
           message.content,
           socket.data.botId || socket.id,
           socket.data.name || 'Anonymous',
-          socket.data.type || 'user'
+          socket.data.type || 'user',
+          channel,
+          'websocket'
         );
-        
-        // Save message to channel history
-        channel.messages.push(enrichedMessage);
         
         // Broadcast to all in the channel
         io.to(`channel:${channelId}`).emit('new_message', enrichedMessage);

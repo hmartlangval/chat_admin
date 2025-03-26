@@ -5,6 +5,11 @@
  * Used by both WebSocket handlers and REST API endpoints.
  */
 
+import { MessageRepository } from '../data/models/Message';
+
+// Create a singleton message repository instance
+const messageRepository = new MessageRepository();
+
 /**
  * Extract tags from message content
  * @param content Message content
@@ -44,19 +49,46 @@ export function extractRequestId(content: string): string | null {
 }
 
 /**
- * Process message content to extract tags, dataId, and requestId
+ * Extract parentRequestId from message content
  * @param content Message content
- * @returns Object containing extracted tags, dataId, and requestId
+ * @returns Extracted parentRequestId or null
+ */
+export function extractParentRequestId(content: string): string | null {
+  const parentRequestIdMatch = content.match(/\[parentRequestId:\s*(\w+)\]/);
+  return parentRequestIdMatch ? parentRequestIdMatch[1] : null;
+}
+
+/**
+ * Extract status from message content
+ * @param content Message content
+ * @returns Extracted status or null
+ */
+export function extractStatus(content: string): string | null {
+  // Generic regex to match any status value:
+  // [status: any_value] or [status:"any value"] or [status:'any value']
+  const statusMatch = content.match(/\[status:?\s*['"]?([^'"\[\]]+)['"]?\]/i);
+  const status = statusMatch ? statusMatch[1].trim().toLowerCase() : null;
+  return status;
+}
+
+/**
+ * Process message content to extract tags, dataId, requestId, parentRequestId, and status
+ * @param content Message content
+ * @returns Object containing extracted tags, dataId, requestId, parentRequestId, and status
  */
 export function processMessageContent(content: string): {
   tags: string[];
   dataId: string | null;
   requestId: string | null;
+  parentRequestId: string | null;
+  status: string | null;
 } {
   return {
     tags: extractTags(content),
     dataId: extractDataId(content),
-    requestId: extractRequestId(content)
+    requestId: extractRequestId(content),
+    parentRequestId: extractParentRequestId(content),
+    status: extractStatus(content)
   };
 }
 
@@ -85,7 +117,7 @@ export function createChatMessage(
   senderType: string
 ): any {
   // Process the content
-  const { tags, dataId, requestId } = processMessageContent(content);
+  const { tags, dataId, requestId, parentRequestId, status } = processMessageContent(content);
   
   // Create and return the message object
   return {
@@ -98,6 +130,80 @@ export function createChatMessage(
     tags,
     dataId,
     requestId,
+    parentRequestId,
+    status,
     timestamp: Date.now()
   };
+}
+
+/**
+ * Process a message: create it, store it in the channel, log to database if needed, and return it
+ * This unified function should be used by all message-processing entry points (WebSocket, REST API)
+ * 
+ * @param channelId Channel ID
+ * @param content Message content
+ * @param senderId Sender ID
+ * @param senderName Sender name
+ * @param senderType Sender type
+ * @param channel Channel object to store the message in
+ * @param source Optional source identifier for logging (e.g. 'websocket', 'rest-api')
+ * @returns The created message object
+ */
+export async function processMessage(
+  channelId: string,
+  content: string,
+  senderId: string,
+  senderName: string,
+  senderType: string,
+  channel: any,
+  source: string = 'unknown'
+): Promise<any> {
+  // Create the message
+  const message = createChatMessage(
+    channelId,
+    content,
+    senderId,
+    senderName,
+    senderType
+  );
+  
+  // Save message to channel history
+  if (channel && channel.messages) {
+    channel.messages.push(message);
+  }
+  
+  // Log messages with requestId or parentRequestId to the database
+  try {
+    if (message.requestId) {
+      console.log(`[${source}] Logging message with requestId ${message.requestId} to database`);
+      await messageRepository.saveMessage(message);
+    } else if (message.parentRequestId) {
+      console.log(`[${source}] Logging response message with parentRequestId ${message.parentRequestId} to database`);
+      await messageRepository.saveMessage(message);
+      
+      // If message has a status, update the parent request's status as well
+      if (message.status) {
+        console.log(`[${source}] Updating parent request ${message.parentRequestId} with status: ${message.status}`);
+        try {
+          // Find the parent request
+          const parentRequest = await messageRepository.findMessageByRequestId(message.parentRequestId);
+          
+          if (parentRequest) {
+            // Update the status
+            parentRequest.status = message.status;
+            await messageRepository.saveMessage(parentRequest);
+          } else {
+            console.warn(`[${source}] Parent request ${message.parentRequestId} not found for status update`);
+          }
+        } catch (error) {
+          console.error(`[${source}] Error updating parent request status:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`[${source}] Error logging message to database:`, error);
+    // Don't fail the process if database logging fails
+  }
+  
+  return message;
 } 

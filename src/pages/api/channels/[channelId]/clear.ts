@@ -1,7 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import type { Server as NetServer } from 'http';
-import { createChatMessage } from '../../../../utils/messageProcessor';
+import { processMessage } from '../../../../utils/messageProcessor';
+// The MessageRepository is now imported and used within messageProcessor.ts
+// import { MessageRepository } from '../../../../data/models/Message';
 
 // Define the extended response type to access the Socket.IO server
 type ExtendedNextApiResponse = NextApiResponse & {
@@ -12,7 +14,10 @@ type ExtendedNextApiResponse = NextApiResponse & {
   };
 };
 
-export default function handler(
+// The message repository instance is now created and managed within messageProcessor.ts
+// const messageRepository = new MessageRepository();
+
+export default async function handler(
   req: NextApiRequest,
   res: ExtendedNextApiResponse
 ) {
@@ -49,17 +54,16 @@ export default function handler(
     // Clear the messages array
     channel.messages = [];
     
-    // Create a system message indicating chat was cleared
-    const systemMessage = createChatMessage(
+    // Create and process the system message using the unified function
+    const systemMessage = await processMessage(
       channelId,
       'Chat history has been cleared by the administrator.',
       'system',
       'System',
-      'system'
+      'system',
+      channel,
+      'rest-api-clear'
     );
-    
-    // Add the system message
-    channel.messages.push(systemMessage);
     
     // Notify all clients in the channel about the clear
     io.to(`channel:${channelId}`).emit('chat_cleared');

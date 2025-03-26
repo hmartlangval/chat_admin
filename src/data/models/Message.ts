@@ -97,6 +97,30 @@ export class MessageRepository {
   }
   
   /**
+   * Find a message by its requestId
+   * @param requestId The requestId to search for
+   * @returns The message or null if not found
+   */
+  async findMessageByRequestId(requestId: string): Promise<MessageModel | null> {
+    const { db } = await connectToDatabase();
+    const collection = db.collection<MessageModel>(this.collectionName);
+    
+    // Execute the query
+    const message = await collection.findOne({ requestId });
+    
+    // If not found with exact match, try a different approach with case-insensitive regex
+    if (!message) {
+      const messageCI = await collection.findOne({
+        requestId: { $regex: new RegExp(`^${requestId}$`, 'i') }
+      });
+      
+      return messageCI;
+    }
+    
+    return message;
+  }
+  
+  /**
    * Clear all messages for a channel
    * @param channelId The channel ID
    * @returns Number of messages deleted

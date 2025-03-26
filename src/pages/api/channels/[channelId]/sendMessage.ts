@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import type { Server as NetServer } from 'http';
+import { createChatMessage } from '../../../../utils/messageProcessor';
 
 // Define the extended response type
 type ExtendedNextApiResponse = NextApiResponse & {
@@ -54,28 +55,14 @@ export default function handler(
       return res.status(400).json({ error: 'Cannot send message to inactive channel' });
     }
     
-    // Process any tags in the message (format: @participant_id)
-    const tags: string[] = [];
-    if (content) {
-      const tagMatches = content.match(/@(\w+)/g);
-      if (tagMatches) {
-        tagMatches.forEach((tag: string) => {
-          tags.push(tag.substring(1)); // Remove the @ symbol
-        });
-      }
-    }
-    
-    // Create the message
-    const message = {
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+    // Create the message using the shared utility
+    const message = createChatMessage(
       channelId,
-      senderId: 'admin',
-      senderName: sender,
-      senderType: 'admin',
-      content: content,
-      tags,
-      timestamp: Date.now()
-    };
+      content,
+      'admin',
+      sender,
+      'admin'
+    );
     
     // Save message to channel history
     channel.messages.push(message);

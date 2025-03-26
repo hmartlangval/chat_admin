@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import type { Server as NetServer } from 'http';
+import { createChatMessage } from '../../../../utils/messageProcessor';
 
 // Define the extended response type to access the Socket.IO server
 type ExtendedNextApiResponse = NextApiResponse & {
@@ -49,16 +50,13 @@ export default function handler(
     channel.messages = [];
     
     // Create a system message indicating chat was cleared
-    const systemMessage = {
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+    const systemMessage = createChatMessage(
       channelId,
-      senderId: 'system',
-      senderName: 'System',
-      senderType: 'system',
-      content: 'Chat history has been cleared by the administrator.',
-      tags: [],
-      timestamp: Date.now()
-    };
+      'Chat history has been cleared by the administrator.',
+      'system',
+      'System',
+      'system'
+    );
     
     // Add the system message
     channel.messages.push(systemMessage);

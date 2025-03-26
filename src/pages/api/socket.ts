@@ -5,6 +5,7 @@ import type { Socket } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import { promises as fsPromises } from 'fs';
+import { createChatMessage } from '../../utils/messageProcessor';
 
 // Augment the response type to include custom socket properties
 type SocketIONextApiResponse = NextApiResponse & {
@@ -31,6 +32,8 @@ interface ChatMessage {
   senderType: string;
   content: string;
   tags: string[];
+  dataId: string | null;
+  requestId: string | null;
   timestamp: number;
 }
 
@@ -297,28 +300,14 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           });
         }
         
-        // Process any tags in the message (format: @participant_id)
-        const tags: string[] = [];
-        if (message.content) {
-          const tagMatches = message.content.match(/@(\w+)/g);
-          if (tagMatches) {
-            tagMatches.forEach((tag: string) => {
-              tags.push(tag.substring(1)); // Remove the @ symbol
-            });
-          }
-        }
-        
-        // Enrich message with sender info and timestamp
-        const enrichedMessage: ChatMessage = {
-          id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+        // Create the enriched message using the shared utility
+        const enrichedMessage = createChatMessage(
           channelId,
-          senderId: socket.data.botId || socket.id,
-          senderName: socket.data.name || 'Anonymous',
-          senderType: socket.data.type || 'user',
-          content: message.content,
-          tags,
-          timestamp: Date.now()
-        };
+          message.content,
+          socket.data.botId || socket.id,
+          socket.data.name || 'Anonymous',
+          socket.data.type || 'user'
+        );
         
         // Save message to channel history
         channel.messages.push(enrichedMessage);

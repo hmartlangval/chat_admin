@@ -175,15 +175,12 @@ export async function processMessage(
   // Log messages with requestId or parentRequestId to the database
   try {
     if (message.requestId) {
-      console.log(`[${source}] Logging message with requestId ${message.requestId} to database`);
       await messageRepository.saveMessage(message);
     } else if (message.parentRequestId) {
-      console.log(`[${source}] Logging response message with parentRequestId ${message.parentRequestId} to database`);
       await messageRepository.saveMessage(message);
       
       // If message has a status, update the parent request's status as well
       if (message.status) {
-        console.log(`[${source}] Updating parent request ${message.parentRequestId} with status: ${message.status}`);
         try {
           // Find the parent request
           const parentRequest = await messageRepository.findMessageByRequestId(message.parentRequestId);
@@ -192,16 +189,14 @@ export async function processMessage(
             // Update the status
             parentRequest.status = message.status;
             await messageRepository.saveMessage(parentRequest);
-          } else {
-            console.warn(`[${source}] Parent request ${message.parentRequestId} not found for status update`);
           }
         } catch (error) {
-          console.error(`[${source}] Error updating parent request status:`, error);
+          console.error(`Error updating parent request status:`, error);
         }
       }
     }
   } catch (error) {
-    console.error(`[${source}] Error logging message to database:`, error);
+    console.error(`Error logging message to database:`, error);
     // Don't fail the process if database logging fails
   }
   

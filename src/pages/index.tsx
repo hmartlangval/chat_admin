@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Head from 'next/head';
 
 // Define message type for admin UI
@@ -20,6 +20,15 @@ interface Participant {
   type: string;
 }
 
+// Define shared data type
+interface SharedData {
+  id: string;
+  type: 'string' | 'image' | 'document' | 'json';
+  content: string;
+  timestamp: number;
+  error?: string;
+}
+
 export default function Home() {
   const [serverStatus, setServerStatus] = useState<'initializing' | 'running' | 'error'>('initializing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -30,6 +39,8 @@ export default function Home() {
   const [messageContent, setMessageContent] = useState<string>('');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState<boolean>(false);
+  const [sharedData, setSharedData] = useState<SharedData | null>(null);
+  const [dataModalOpen, setDataModalOpen] = useState<boolean>(false);
 
   // Auto-initialize the Socket.IO server on component mount
   useEffect(() => {
@@ -196,6 +207,115 @@ export default function Home() {
     }
   };
 
+  // Function to handle data reference clicks in messages
+  const handleDataReferenceClick = async (dataId: string) => {
+    try {
+      console.log(`Fetching data with ID: ${dataId}`);
+      
+      const response = await fetch(`/api/data/${dataId}`);
+      if (response.ok) {
+        const result = await response.json();
+        setSharedData(result.data);
+        setDataModalOpen(true);
+      } else {
+        console.error('Failed to fetch shared data:', await response.text());
+      }
+    } catch (err) {
+      console.error('Error fetching shared data:', err);
+    }
+  };
+
+  // Function to render message content with data reference links
+  const renderMessageContent = (content: string) => {
+    // Regular expression to find data references [data_id: xxx]
+    const dataRefRegex = /\[data_id:\s*([a-zA-Z0-9_]+)\]/g;
+    
+    // Split the content by data references
+    const parts = content.split(dataRefRegex);
+    
+    if (parts.length <= 1) {
+      // No data references, return plain text
+      return content;
+    }
+    
+    // Find all matches to extract data IDs
+    const matches = Array.from(content.matchAll(dataRefRegex));
+    const result = [];
+    
+    for (let i = 0; i < parts.length; i++) {
+      // Add the text part
+      if (parts[i]) {
+        result.push(<span key={`text-${i}`}>{parts[i]}</span>);
+      }
+      
+      // Add the data reference link if there's a corresponding match
+      const matchIndex = Math.floor(i / 2);
+      if (matches[matchIndex]) {
+        const dataId = matches[matchIndex][1];
+        result.push(
+          <button
+            key={`data-${i}`}
+            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200 mx-1"
+            onClick={() => handleDataReferenceClick(dataId)}
+          >
+            View Shared Data
+          </button>
+        );
+      }
+    }
+    
+    return result;
+  };
+
+  // Data modal component
+  const DataModal = ({ data, onClose }: { data: SharedData, onClose: () => void }) => {
+    if (!data) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+          <div className="p-4 border-b flex justify-between items-center">
+            <h3 className="text-lg font-medium">Shared Data</h3>
+            <button 
+              className="text-gray-400 hover:text-gray-500"
+              onClick={onClose}
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div className="p-4 flex-1 overflow-auto">
+            {data.type === 'image' ? (
+              <div className="flex justify-center">
+                <img 
+                  src={data.content.startsWith('data:') ? data.content : `/api/data/${data.id}`} 
+                  alt="Shared Image" 
+                  className="max-w-full max-h-[60vh] object-contain" 
+                />
+              </div>
+            ) : data.type === 'json' ? (
+              <pre className="bg-gray-50 p-4 rounded overflow-auto whitespace-pre-wrap">
+                {JSON.stringify(JSON.parse(data.content), null, 2)}
+              </pre>
+            ) : (
+              <div className="whitespace-pre-wrap break-all">
+                {data.content}
+              </div>
+            )}
+          </div>
+          
+          <div className="p-4 border-t">
+            <div className="text-xs text-gray-500">
+              Type: {data.type} • Shared at: {new Date(data.timestamp).toLocaleString()}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
@@ -340,10 +460,10 @@ export default function Home() {
                         {message.senderId !== 'system' ? (
                           <div className="text-sm whitespace-pre-line">
                             <span className="font-bold text-gray-700 mr-2">{message.senderName}:</span>
-                            {message.content}
+                            {renderMessageContent(message.content)}
                           </div>
                         ) : (
-                          <div className="text-sm whitespace-pre-line">{message.content}</div>
+                          <div className="text-sm whitespace-pre-line">{renderMessageContent(message.content)}</div>
                         )}
                       </div>
                     </div>
@@ -375,6 +495,20 @@ export default function Home() {
                 />
                 <button
                   onClick={() => {
+                    setMessageContent("@fileprep let's start fileprep process");
+                    setTimeout(() => {
+                      handleSendMessage();
+                      setUserScrolled(false);
+                      // Reset userScrolled when user sends a message
+                    }, 1000);
+                  }}
+                  className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
+                >
+                  Fileprep
+                </button>
+
+                <button
+                  onClick={() => {
                     handleSendMessage();
                     // Reset userScrolled when user sends a message
                     setUserScrolled(false);
@@ -389,6 +523,17 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Data view modal */}
+      {dataModalOpen && sharedData && (
+        <DataModal 
+          data={sharedData} 
+          onClose={() => {
+            setDataModalOpen(false);
+            setSharedData(null);
+          }}
+        />
+      )}
     </div>
   );
 } 

@@ -2,6 +2,9 @@ import { Server as SocketIOServer } from 'socket.io';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { Server as NetServer } from 'http';
 import type { Socket } from 'socket.io';
+import fs from 'fs';
+import path from 'path';
+import { promises as fsPromises } from 'fs';
 
 // Augment the response type to include custom socket properties
 type SocketIONextApiResponse = NextApiResponse & {
@@ -45,6 +48,105 @@ let io: SocketIOServer;
 const channels = new Map<string, Channel>();
 // Make channels available globally
 (global as any).channels = channels;
+
+// Data storage for shared content
+interface SharedData {
+  id: string;
+  type: 'string' | 'image' | 'document' | 'json';
+  content: string; // For memory storage or preview
+  filePath?: string; // Path to the stored file
+  timestamp: number;
+  senderId: string;
+}
+
+// Create metadata structure
+interface SharedDataMetadata {
+  id: string;
+  type: 'string' | 'image' | 'document' | 'json';
+  filePath: string;
+  timestamp: number;
+  senderId: string;
+  originalSize: number;
+}
+
+// Create a global map to store shared data
+const sharedDataStore = new Map<string, SharedData>();
+// Make data store available globally
+(global as any).sharedDataStore = sharedDataStore;
+
+// Ensure data directory exists
+const DATA_DIR = path.join(process.cwd(), 'shared_data');
+const METADATA_FILE = path.join(DATA_DIR, 'metadata.json');
+
+// Function to ensure the data directory exists
+async function ensureDataDirExists() {
+  try {
+    await fsPromises.mkdir(DATA_DIR, { recursive: true });
+    console.log(`Data directory created/ensured at: ${DATA_DIR}`);
+    
+    // Check if metadata file exists, create it if not
+    try {
+      await fsPromises.access(METADATA_FILE);
+    } catch (err) {
+      // File doesn't exist, create it with empty array
+      await fsPromises.writeFile(METADATA_FILE, JSON.stringify([], null, 2));
+      console.log(`Created new metadata file at: ${METADATA_FILE}`);
+    }
+  } catch (err) {
+    console.error('Error creating data directory:', err);
+  }
+}
+
+// Function to save metadata to file
+async function saveMetadata(metadata: SharedDataMetadata[]) {
+  try {
+    await fsPromises.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
+  } catch (err) {
+    console.error('Error saving metadata:', err);
+  }
+}
+
+// Function to load metadata from file
+async function loadMetadata(): Promise<SharedDataMetadata[]> {
+  try {
+    const data = await fsPromises.readFile(METADATA_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    console.error('Error loading metadata:', err);
+    return [];
+  }
+}
+
+// Initialize the data directory and load metadata at startup
+(async () => {
+  await ensureDataDirExists();
+  const metadata = await loadMetadata();
+  
+  // Load existing data into memory store
+  for (const item of metadata) {
+    let content = '';
+    
+    // For small text files, load the content into memory
+    if (item.type === 'string' || item.type === 'json') {
+      try {
+        content = await fsPromises.readFile(item.filePath, 'utf8');
+      } catch (err) {
+        console.error(`Error loading file ${item.filePath}:`, err);
+      }
+    }
+    
+    sharedDataStore.set(item.id, {
+      id: item.id,
+      type: item.type,
+      content: content, // Only loaded for text-based content
+      filePath: item.filePath,
+      timestamp: item.timestamp,
+      senderId: item.senderId
+    });
+  }
+  
+  console.log(`Loaded ${metadata.length} shared data items from disk`);
+})();
 
 export default function handler(req: NextApiRequest, res: SocketIONextApiResponse) {
   if (res.socket.server.io) {
@@ -223,6 +325,161 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
         
         // Broadcast to all in the channel
         io.to(`channel:${channelId}`).emit('new_message', enrichedMessage);
+      });
+
+      // Data sharing event
+      socket.on('share_data', async (data: { 
+        channelId: string; 
+        content: string; 
+        type?: 'string' | 'image' | 'document' | 'json' 
+      }, callback: (response: { dataId: string, error?: string }) => void) => {
+        try {
+          console.log(`Data share request from ${socket.data.name || socket.id} in channel ${data.channelId}`);
+          
+          // Validate input
+          if (!data.content) {
+            return callback({ dataId: '', error: 'Content is required' });
+          }
+          
+          // Generate a unique ID for the data
+          const dataId = `data_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
+          const type = data.type || 'string'; // Default to string if not specified
+          
+          // Ensure data directory exists
+          await ensureDataDirExists();
+          
+          // Determine file extension based on type
+          let fileExt = '.txt';
+          if (type === 'json') fileExt = '.json';
+          else if (type === 'image') fileExt = '.png'; // Default, might be overridden for base64 images
+          else if (type === 'document') fileExt = '.txt';
+          
+          // Determine the file path
+          let filePath = path.join(DATA_DIR, `${dataId}${fileExt}`);
+          let content = data.content;
+          let originalSize = Buffer.byteLength(content, 'utf8');
+          
+          // Special handling for image data URLs
+          if (type === 'image' && content.startsWith('data:image/')) {
+            const matches = content.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+              const imageType = matches[1];
+              const base64Data = matches[2];
+              
+              // Update file extension based on actual image type
+              fileExt = `.${imageType}`;
+              filePath = path.join(DATA_DIR, `${dataId}${fileExt}`);
+              
+              // Convert base64 to binary for file storage
+              const buffer = Buffer.from(base64Data, 'base64');
+              originalSize = buffer.length;
+              
+              // Write the binary data to file
+              await fsPromises.writeFile(filePath, buffer);
+              console.log(`Image saved to ${filePath}`);
+            } else {
+              // If not a valid data URL, save as text
+              await fsPromises.writeFile(filePath, content);
+              console.log(`Image data saved as text to ${filePath}`);
+            }
+          } else {
+            // For other types, save as text
+            await fsPromises.writeFile(filePath, content);
+            console.log(`Data saved to ${filePath}`);
+          }
+          
+          // Create metadata for this file
+          const metadataItem: SharedDataMetadata = {
+            id: dataId,
+            type,
+            filePath,
+            timestamp: Date.now(),
+            senderId: socket.data.botId || socket.id,
+            originalSize
+          };
+          
+          // Load and update metadata file
+          const metadata = await loadMetadata();
+          metadata.push(metadataItem);
+          await saveMetadata(metadata);
+          
+          // Add to in-memory store as well
+          const sharedData: SharedData = {
+            id: dataId,
+            type,
+            content: type === 'string' || type === 'json' ? content : '', // Only keep text content in memory
+            filePath,
+            timestamp: metadataItem.timestamp,
+            senderId: metadataItem.senderId
+          };
+          
+          sharedDataStore.set(dataId, sharedData);
+          console.log(`Data stored with ID: ${dataId}, file: ${filePath}`);
+          
+          // Return the data ID to the client
+          callback({ dataId });
+        } catch (error: any) {
+          console.error('Error processing shared data:', error);
+          callback({ dataId: '', error: error.message || 'Unknown error processing data' });
+        }
+      });
+      
+      // Data retrieval event
+      socket.on('get_data', async (dataId: string, callback: (data: { 
+        id: string;
+        type: string;
+        content: string;
+        timestamp: number;
+        error?: string
+      }) => void) => {
+        try {
+          console.log(`Data retrieval request for ID: ${dataId}`);
+          
+          if (!sharedDataStore.has(dataId)) {
+            return callback({
+              id: '',
+              type: '',
+              content: '',
+              timestamp: 0,
+              error: 'Data not found'
+            });
+          }
+          
+          const data = sharedDataStore.get(dataId)!;
+          
+          // If data has filePath but no content, read from file
+          if (data.filePath && (!data.content || data.content === '') && 
+              (data.type === 'string' || data.type === 'json')) {
+            try {
+              data.content = await fsPromises.readFile(data.filePath, 'utf8');
+            } catch (err: any) {
+              console.error(`Error reading file ${data.filePath}:`, err);
+              return callback({
+                id: data.id,
+                type: data.type,
+                content: '',
+                timestamp: data.timestamp,
+                error: `Error reading file: ${err.message}`
+              });
+            }
+          }
+          
+          callback({
+            id: data.id,
+            type: data.type,
+            content: data.content,
+            timestamp: data.timestamp
+          });
+        } catch (error: any) {
+          console.error('Error retrieving shared data:', error);
+          callback({
+            id: '',
+            type: '',
+            content: '',
+            timestamp: 0,
+            error: error.message || 'Unknown error retrieving data'
+          });
+        }
       });
 
       // Channel operations

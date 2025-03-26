@@ -174,3 +174,42 @@ In UI:
 - Support for analytics based on completion status
 - Foundation for more advanced workflow tracking
 - Flexibility for different use cases and workflows
+
+## Shared Data Storage
+
+### MongoDB Integration for Shared Data Metadata
+
+The system has been updated to store shared data metadata in MongoDB instead of a JSON file. This change offers several benefits:
+
+1. **Scalability**: MongoDB can handle a much larger volume of data than a local JSON file.
+2. **Query Performance**: MongoDB offers efficient query capabilities, especially for large datasets.
+3. **Concurrent Access**: Multiple processes can read and write to MongoDB simultaneously without file locking issues.
+4. **Cloud Readiness**: The metadata structure is now ready for future cloud storage integration.
+
+#### Implementation Details
+
+- **Data Model**: The `SharedDataModel` interface has been enhanced to include fields like timestamp, senderId, and originalSize.
+- **File Storage Path**: While files are still stored on the local file system, their paths are now stored as full URLs, making future migration to cloud storage simpler.
+- **API Endpoints**: 
+  - `/api/data/upload.ts` now saves metadata to MongoDB
+  - `/api/data/[dataId].ts` retrieves metadata from MongoDB
+  - `/api/data/files/[filename].ts` serves the actual files
+
+#### Centralized Type Definitions
+
+A new type system has been implemented for shared data:
+
+- **Shared Types**: All shared data interfaces are now centralized in `src/types/shared-data.ts`
+- **Consistent Interfaces**: This ensures consistent data structure across socket handlers and REST API endpoints
+- **Type Safety**: Improved type checking for data passing between modules
+- **Reduced Duplication**: Eliminated duplicate type definitions across files
+
+Main interfaces in the centralized type system:
+- `SharedData`: For in-memory storage
+- `SharedDataMetadata`: For file metadata
+- `SharedDataModel`: For MongoDB storage
+- `FileUploadResponse`: For API responses
+
+#### Backward Compatibility
+
+For backward compatibility, the system still maintains an in-memory store of shared data during runtime. This ensures existing code that relies on the in-memory store continues to function correctly.

@@ -2,15 +2,12 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import path from 'path';
+import { SharedDataRepository } from '../../../data/models/SharedData';
+import { SharedData } from '../../../types/shared-data';
+import url from 'url';
 
-interface SharedData {
-  id: string;
-  type: 'string' | 'image' | 'document' | 'json';
-  content: string;
-  filePath?: string;
-  timestamp: number;
-  senderId: string;
-}
+// Constants
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'shared_data');
 
 export default async function handler(
   req: NextApiRequest,
@@ -23,107 +20,64 @@ export default async function handler(
   }
   
   try {
-    // Access the shared data store
-    const sharedDataStore = (global as any).sharedDataStore as Map<string, SharedData>;
+    // Use the SharedDataRepository to get the data metadata from MongoDB
+    const sharedDataRepo = new SharedDataRepository();
+    const dataMetadata = await sharedDataRepo.getDataById(dataId);
     
-    if (!sharedDataStore) {
-      return res.status(404).json({ error: 'Shared data store not initialized' });
-    }
-    
-    if (!sharedDataStore.has(dataId)) {
-      return res.status(404).json({ error: 'Data not found' });
-    }
-    
-    const data = sharedDataStore.get(dataId)!;
-    
-    // If data has a file path, prioritize reading from the file
-    if (data.filePath && fs.existsSync(data.filePath)) {
-      // Handle different data types
-      switch (data.type) {
-        case 'json':
-          // For JSON, read the file and return as JSON
-          try {
-            const fileContent = await fsPromises.readFile(data.filePath, 'utf8');
-            data.content = fileContent; // Update in-memory content too
-            return res.status(200).json({ 
-              data: {
-                ...data,
-                content: fileContent
-              } 
-            });
-          } catch (err: any) {
-            console.error(`Error reading JSON file ${data.filePath}:`, err);
-            return res.status(500).json({ error: `Error reading JSON file: ${err.message}` });
-          }
-          
-        case 'image':
-          // For images, stream the file directly
-          try {
-            const stat = await fsPromises.stat(data.filePath);
-            const fileExtension = path.extname(data.filePath).toLowerCase();
-            let contentType = 'application/octet-stream';
-            
-            // Determine content type based on file extension
-            if (fileExtension === '.png') contentType = 'image/png';
-            else if (fileExtension === '.jpg' || fileExtension === '.jpeg') contentType = 'image/jpeg';
-            else if (fileExtension === '.gif') contentType = 'image/gif';
-            else if (fileExtension === '.webp') contentType = 'image/webp';
-            else if (fileExtension === '.svg') contentType = 'image/svg+xml';
-            
-            res.setHeader('Content-Type', contentType);
-            res.setHeader('Content-Length', stat.size);
-            
-            // Stream the file to the response
-            const fileStream = fs.createReadStream(data.filePath);
-            return fileStream.pipe(res);
-          } catch (err: any) {
-            console.error(`Error streaming image file ${data.filePath}:`, err);
-            return res.status(500).json({ error: `Error streaming image file: ${err.message}` });
-          }
-          
-        case 'document':
-          // Read document as text
-          try {
-            const fileContent = await fsPromises.readFile(data.filePath, 'utf8');
-            data.content = fileContent; // Update in-memory content too
-            return res.status(200).json({ 
-              data: {
-                ...data,
-                content: fileContent
-              } 
-            });
-          } catch (err: any) {
-            console.error(`Error reading document file ${data.filePath}:`, err);
-            return res.status(500).json({ error: `Error reading document file: ${err.message}` });
-          }
-          
-        default:
-          // For string and other types, read as text
-          try {
-            const fileContent = await fsPromises.readFile(data.filePath, 'utf8');
-            data.content = fileContent; // Update in-memory content too
-            return res.status(200).json({ 
-              data: {
-                ...data,
-                content: fileContent
-              } 
-            });
-          } catch (err: any) {
-            console.error(`Error reading text file ${data.filePath}:`, err);
-            return res.status(500).json({ error: `Error reading text file: ${err.message}` });
-          }
-      }
-    } else {
-      // Fallback to memory-stored content if file doesn't exist
-      // This handles both cases: no filePath or file not found
-      if (data.filePath && !fs.existsSync(data.filePath)) {
-        console.warn(`File not found at ${data.filePath}, using in-memory content`);
+    if (!dataMetadata) {
+      // Fallback to in-memory store for backward compatibility
+      const sharedDataStore = (global as any).sharedDataStore as Map<string, SharedData>;
+      
+      if (!sharedDataStore || !sharedDataStore.has(dataId)) {
+        return res.status(404).json({ error: 'Data not found' });
       }
       
-      return res.status(200).json({ data });
+      return res.status(200).json({ data: sharedDataStore.get(dataId) });
     }
+    
+    // Extract the file name from the stored URL
+    const parsedUrl = url.parse(dataMetadata.filePath);
+    const fileName = path.basename(parsedUrl.pathname || '');
+    
+    // Get the actual file path on the server
+    const localFilePath = path.join(DATA_DIR, fileName);
+    
+    // Check if the file exists
+    if (!fs.existsSync(localFilePath)) {
+      return res.status(404).json({ error: 'Data file not found' });
+    }
+    
+    // For image or binary content, just return metadata
+    if (dataMetadata.type === 'image' || dataMetadata.type === 'document') {
+      return res.status(200).json({
+        data: {
+          id: dataMetadata.dataId,
+          type: dataMetadata.type,
+          content: '', // Empty content for binary files
+          filePath: dataMetadata.filePath, // Return the full URL
+          timestamp: dataMetadata.timestamp,
+          senderId: dataMetadata.senderId,
+          metadata: dataMetadata.metadata
+        }
+      });
+    }
+    
+    // For text-based content, read and return the content
+    const content = await fsPromises.readFile(localFilePath, 'utf8');
+    
+    return res.status(200).json({
+      data: {
+        id: dataMetadata.dataId,
+        type: dataMetadata.type,
+        content,
+        filePath: dataMetadata.filePath,
+        timestamp: dataMetadata.timestamp,
+        senderId: dataMetadata.senderId,
+        metadata: dataMetadata.metadata
+      }
+    });
   } catch (error: any) {
-    console.error('Error retrieving shared data:', error);
+    console.error('Error retrieving data:', error);
     return res.status(500).json({ error: error.message || 'Unknown error' });
   }
 } 

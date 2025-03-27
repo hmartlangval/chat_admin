@@ -34,7 +34,7 @@ export function extractTags(content: string): string[] {
  * @returns Extracted dataId or null
  */
 export function extractDataId(content: string): string | null {
-  const dataIdMatch = content.match(/\[dataId:\s*(\w+)\]/);
+  const dataIdMatch = content.match(/\[data_id:\s*(\w+)\]/);
   return dataIdMatch ? dataIdMatch[1] : null;
 }
 

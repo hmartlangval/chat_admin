@@ -213,3 +213,40 @@ Main interfaces in the centralized type system:
 #### Backward Compatibility
 
 For backward compatibility, the system still maintains an in-memory store of shared data during runtime. This ensures existing code that relies on the in-memory store continues to function correctly.
+
+## Update 7 ✅ COMPLETED
+- ✅ Added a new table (collection) for prompts in MongoDB database
+- ✅ Implemented API endpoints for CRUD operations for LLM prompts
+
+### Prompt Management System
+
+This update adds a complete system for managing LLM (Large Language Model) prompts, with a focus on storage efficiency and cloud migration readiness.
+
+#### 1. Prompt Storage Architecture
+- Hybrid storage approach with file-based content and MongoDB metadata
+- Prompt content stored as text files in `/data/prompts/` directory
+- Metadata and file references stored in MongoDB for efficient querying
+- Design pattern compatible with future cloud storage migration
+
+#### 2. Database Schema
+The `prompts` collection in MongoDB includes comprehensive metadata:
+- Basic info: title, description, tags
+- File info: fileUrl, filePath, fileSize, contentType
+- Tracking: createdAt, updatedAt, createdBy, version
+- Status: isActive flag
+- Custom data: flexible metadata object
+
+#### 3. API Endpoints
+Complete REST API for prompt management:
+- Standard CRUD operations through `/api/prompts` endpoints
+- Separate content management with `/api/prompts/content` endpoints
+- Search functionality with text search and filtering options
+
+#### 4. Implementation Details
+- Repository pattern consistent with existing codebase
+- Text search powered by MongoDB full-text search
+- File management utility for prompt file operations
+- Version tracking for audit purposes
+- Comprehensive error handling
+
+See the detailed documentation in [docs/update7-docs.md](./update7-docs.md) for complete API reference and usage examples.

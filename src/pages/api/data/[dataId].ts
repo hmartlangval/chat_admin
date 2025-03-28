@@ -5,6 +5,7 @@ import path from 'path';
 import { SharedDataRepository } from '../../../data/models/SharedData';
 import { SharedData } from '../../../types/shared-data';
 import url from 'url';
+import { FILE_UPLOAD_CONFIG } from '../../../config/file-upload';
 
 // Constants
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'shared_data');
@@ -34,32 +35,60 @@ export default async function handler(
       
       return res.status(200).json({ data: sharedDataStore.get(dataId) });
     }
+
+    // Check if this is a file upload (has filePath starting with /api/data/)
+    if (dataMetadata.filePath?.startsWith('/api/data/')) {
+      // Extract the file name from the stored URL
+      const parsedUrl = url.parse(dataMetadata.filePath);
+      const fileName = path.basename(parsedUrl.pathname || '');
+      
+      // Search for the file in all upload folders
+      const baseUploadDir = path.join(process.cwd(), FILE_UPLOAD_CONFIG.baseUploadFolder);
+      const folders = fs.readdirSync(baseUploadDir);
+      
+      let filePath = null;
+      for (const folder of folders) {
+        const fullPath = path.join(baseUploadDir, folder, fileName);
+        if (fs.existsSync(fullPath)) {
+          filePath = fullPath;
+          break;
+        }
+      }
+
+      if (!filePath) {
+        return res.status(404).json({ error: 'Data file not found' });
+      }
+      
+      // For image or binary content, stream the file
+      if (dataMetadata.type === 'image' || dataMetadata.type === 'document') {
+        // Get file stats
+        const stats = fs.statSync(filePath);
+        
+        // Set appropriate headers
+        res.setHeader('Content-Type', dataMetadata.metadata?.contentType || 'application/octet-stream');
+        res.setHeader('Content-Length', stats.size);
+        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+
+        // Stream the file
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+
+        // Handle errors
+        fileStream.on('error', (error) => {
+          console.error('Error streaming file:', error);
+          res.status(500).json({ error: 'Error streaming file' });
+        });
+
+        return;
+      }
+    }
     
-    // Extract the file name from the stored URL
-    const parsedUrl = url.parse(dataMetadata.filePath);
-    const fileName = path.basename(parsedUrl.pathname || '');
-    
-    // Get the actual file path on the server
-    const localFilePath = path.join(DATA_DIR, fileName);
+    // For non-file data or text-based content, use the original logic
+    const localFilePath = path.join(DATA_DIR, dataId);
     
     // Check if the file exists
     if (!fs.existsSync(localFilePath)) {
       return res.status(404).json({ error: 'Data file not found' });
-    }
-    
-    // For image or binary content, just return metadata
-    if (dataMetadata.type === 'image' || dataMetadata.type === 'document') {
-      return res.status(200).json({
-        data: {
-          id: dataMetadata.dataId,
-          type: dataMetadata.type,
-          content: '', // Empty content for binary files
-          filePath: dataMetadata.filePath, // Return the full URL
-          timestamp: dataMetadata.timestamp,
-          senderId: dataMetadata.senderId,
-          metadata: dataMetadata.metadata
-        }
-      });
     }
     
     // For text-based content, read and return the content

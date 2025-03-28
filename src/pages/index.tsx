@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Head from 'next/head';
+import { StartTaskButton } from '../components/StartTaskButton';
 
 // Define message type for admin UI
 interface Message {
@@ -389,6 +390,10 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-800">Chat Server Admin</h1>
             <div className="flex items-center space-x-2">
+              <StartTaskButton
+                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
+                isChannelActive={channelActive}
+              />
               <div className={`h-2.5 w-2.5 rounded-full ${serverStatus === 'running' ? 'bg-green-500' : serverStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
               <span className="text-sm text-gray-600">
                 {serverStatus === 'running' ? 'Server Running' : serverStatus === 'error' ? 'Server Error' : 'Initializing...'}

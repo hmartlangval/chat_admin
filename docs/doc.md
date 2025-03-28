@@ -214,6 +214,40 @@ Main interfaces in the centralized type system:
 
 For backward compatibility, the system still maintains an in-memory store of shared data during runtime. This ensures existing code that relies on the in-memory store continues to function correctly.
 
+## Update 6 ✅ COMPLETED - JSON Content Display Enhancement
+
+### Feature: Improved JSON Viewing in Messages
+
+A new feature has been added to enhance the readability of JSON content within messages:
+
+#### 1. JSON Content Detection
+- Messages containing content wrapped in `[json]` and `[/json]` tags are detected
+- The JSON content between these tags is extracted and validated
+- The tags and raw JSON content are hidden from the normal message display
+
+#### 2. UI Implementation
+- A clickable button labeled "View JSON" replaces the raw JSON content in the message
+- Clicking this button opens a modal dialog displaying the JSON in a properly formatted, indented view
+- The modal can be closed by pressing ESC or clicking a close button
+
+#### 3. User Experience Benefits
+- Cleaner message display without lengthy JSON strings cluttering the conversation
+- Better readability of JSON data through proper formatting and indentation
+- Improved navigation with keyboard shortcuts for the modal
+- Ability to read complex data structures more easily
+
+#### 4. Technical Implementation
+- JSON validation to ensure proper formatting
+- Syntax highlighting for better readability
+- Error handling for malformed JSON
+- Responsive modal design that works on mobile and desktop
+
+#### 5. Use Cases
+- Bot responses containing structured data
+- API responses shared in the chat
+- Configuration settings being discussed
+- Debug information in a more readable format
+
 ## Update 7 ✅ COMPLETED
 - ✅ Added a new table (collection) for prompts in MongoDB database
 - ✅ Implemented API endpoints for CRUD operations for LLM prompts

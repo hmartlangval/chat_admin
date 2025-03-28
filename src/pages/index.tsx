@@ -227,25 +227,85 @@ export default function Home() {
 
   // Function to render message content with data reference links
   const renderMessageContent = (content: string) => {
-    // Regular expression to find data references [data_id: xxx]
+    // First check for data references [data_id: xxx]
     const dataRefRegex = /\[data_id:\s*([a-zA-Z0-9_]+)\]/g;
+    const dataRefParts = content.split(dataRefRegex);
     
-    // Split the content by data references
-    const parts = content.split(dataRefRegex);
-    
-    if (parts.length <= 1) {
-      // No data references, return plain text
+    // If there are no data references, check for JSON content
+    if (dataRefParts.length <= 1) {
+      // Check for JSON tags [json]...[/json]
+      const jsonRegex = /\[json\]([\s\S]*?)\[\/json\]/g;
+      if (content.match(jsonRegex)) {
+        // Process JSON content
+        let processedContent = content;
+        let match;
+        let index = 0;
+        const jsonSegments: Record<string, any> = {};
+        
+        // Reset regex state
+        jsonRegex.lastIndex = 0;
+        
+        while ((match = jsonRegex.exec(content)) !== null) {
+          try {
+            const fullMatch = match[0];
+            const jsonContent = match[1];
+            const jsonData = JSON.parse(jsonContent);
+            const jsonId = `inline-json-${index++}`;
+            
+            // Store the parsed JSON
+            jsonSegments[jsonId] = jsonData;
+            
+            // Replace the JSON block with a placeholder
+            processedContent = processedContent.replace(
+              fullMatch,
+              `[json-view id="${jsonId}"]`
+            );
+          } catch (err) {
+            console.error('Error parsing inline JSON:', err);
+          }
+        }
+        
+        // If we processed any JSON, render with the JsonViewButton components
+        if (Object.keys(jsonSegments).length > 0) {
+          const parts = processedContent.split(/(\[json-view id="[^"]+"\])/);
+          return parts.map((part, idx) => {
+            const placeholderMatch = part.match(/\[json-view id="([^"]+)"\]/);
+            if (placeholderMatch && placeholderMatch[1] && jsonSegments[placeholderMatch[1]]) {
+              return (
+                <button
+                  key={idx}
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200 mx-1"
+                  onClick={() => {
+                    setSharedData({
+                      id: placeholderMatch[1],
+                      type: 'json',
+                      content: JSON.stringify(jsonSegments[placeholderMatch[1]], null, 2),
+                      timestamp: Date.now()
+                    });
+                    setDataModalOpen(true);
+                  }}
+                >
+                  View JSON
+                </button>
+              );
+            }
+            return part ? <span key={idx}>{part}</span> : null;
+          });
+        }
+      }
+      
+      // If no special content found, return plain text
       return content;
     }
     
-    // Find all matches to extract data IDs
+    // Process data references
     const matches = Array.from(content.matchAll(dataRefRegex));
     const result = [];
     
-    for (let i = 0; i < parts.length; i++) {
+    for (let i = 0; i < dataRefParts.length; i++) {
       // Add the text part
-      if (parts[i]) {
-        result.push(<span key={`text-${i}`}>{parts[i]}</span>);
+      if (dataRefParts[i]) {
+        result.push(<span key={`text-${i}`}>{dataRefParts[i]}</span>);
       }
       
       // Add the data reference link if there's a corresponding match

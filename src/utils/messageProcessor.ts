@@ -72,6 +72,77 @@ export function extractStatus(content: string): string | null {
 }
 
 /**
+ * Extract JSON content from message wrapped in [json] and [/json] tags
+ * @param content Message content
+ * @returns Object with JSON data, preprocessed content, and success status
+ */
+export function extractJsonContent(content: string): { 
+  hasJson: boolean; 
+  jsonData: Record<string, any> | null; 
+  displayContent: string;
+  error?: string;
+} {
+  const result = {
+    hasJson: false,
+    jsonData: null as Record<string, any> | null,
+    displayContent: content,
+    error: undefined as string | undefined
+  };
+  
+  // Check if content has [json] tags
+  const jsonRegex = /\[json\]([\s\S]*?)\[\/json\]/g;
+  let match: RegExpExecArray | null;
+  const matches: RegExpExecArray[] = [];
+  
+  // Collect all matches manually instead of using matchAll
+  while ((match = jsonRegex.exec(content)) !== null) {
+    matches.push(match);
+  }
+  
+  if (matches.length === 0) {
+    return result;
+  }
+  
+  result.hasJson = true;
+  let processedContent = content;
+  
+  // Process all JSON blocks
+  for (const match of matches) {
+    const fullMatch = match[0]; // The entire match including tags
+    const jsonString = match[1]; // Just the content between tags
+    
+    try {
+      // Try to parse the JSON
+      const jsonData = JSON.parse(jsonString);
+      
+      // Replace each JSON block with a placeholder
+      const jsonId = generateMessageId(); // Generate a unique ID for this JSON block
+      processedContent = processedContent.replace(
+        fullMatch, 
+        `[json-view id="${jsonId}"]`
+      );
+      
+      // Store the JSON data
+      if (result.jsonData === null) {
+        result.jsonData = {};
+      }
+      result.jsonData[jsonId] = jsonData;
+    } catch (err) {
+      // If JSON is invalid, replace with an error message
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      processedContent = processedContent.replace(
+        fullMatch, 
+        `[Invalid JSON: ${errorMessage}]`
+      );
+      result.error = `Invalid JSON: ${errorMessage}`;
+    }
+  }
+  
+  result.displayContent = processedContent;
+  return result;
+}
+
+/**
  * Process message content to extract tags, dataId, requestId, parentRequestId, and status
  * @param content Message content
  * @returns Object containing extracted tags, dataId, requestId, parentRequestId, and status
@@ -82,13 +153,20 @@ export function processMessageContent(content: string): {
   requestId: string | null;
   parentRequestId: string | null;
   status: string | null;
+  jsonData: any | null;
+  displayContent: string;
 } {
+  // Extract JSON content first, as it might modify the content
+  const jsonResult = extractJsonContent(content);
+  
   return {
-    tags: extractTags(content),
-    dataId: extractDataId(content),
-    requestId: extractRequestId(content),
-    parentRequestId: extractParentRequestId(content),
-    status: extractStatus(content)
+    tags: extractTags(jsonResult.displayContent),
+    dataId: extractDataId(jsonResult.displayContent),
+    requestId: extractRequestId(jsonResult.displayContent),
+    parentRequestId: extractParentRequestId(jsonResult.displayContent),
+    status: extractStatus(jsonResult.displayContent),
+    jsonData: jsonResult.jsonData,
+    displayContent: jsonResult.displayContent
   };
 }
 
@@ -117,7 +195,15 @@ export function createChatMessage(
   senderType: string
 ): any {
   // Process the content
-  const { tags, dataId, requestId, parentRequestId, status } = processMessageContent(content);
+  const { 
+    tags, 
+    dataId, 
+    requestId, 
+    parentRequestId, 
+    status, 
+    jsonData, 
+    displayContent 
+  } = processMessageContent(content);
   
   // Create and return the message object
   return {
@@ -126,7 +212,9 @@ export function createChatMessage(
     senderId,
     senderName,
     senderType,
-    content,
+    content,            // Original content with JSON tags
+    displayContent,     // Content with JSON tags replaced with placeholders
+    jsonData,           // Extracted JSON data
     tags,
     dataId,
     requestId,

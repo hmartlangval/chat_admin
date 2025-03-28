@@ -7,6 +7,8 @@ interface Message {
   sender_id: string;
   sender_name: string;
   content: string;
+  displayContent?: string;
+  jsonData?: Record<string, any> | null;
   timestamp: number;
 }
 
@@ -90,6 +92,8 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
               <MessageBubble
                 key={`${message.sender_id}-${index}-${message.timestamp}`}
                 content={message.content}
+                displayContent={message.displayContent}
+                jsonData={message.jsonData}
                 sender={message.sender_name}
                 timestamp={message.timestamp}
                 isServerMessage={message.sender_id === 'server_bot'}

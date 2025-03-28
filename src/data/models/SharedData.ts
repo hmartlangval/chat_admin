@@ -15,12 +15,12 @@ export class SharedDataRepository {
     const collection = db.collection<SharedDataModel>(this.collectionName);
     
     // Check if data with this ID already exists
-    const existing = await collection.findOne({ dataId: data.dataId });
+    const existing = await collection.findOne({ id: data.id });
     
     if (existing) {
       // Update existing data
       await collection.updateOne(
-        { dataId: data.dataId },
+        { id: data.id },
         { $set: data }
       );
       return data;
@@ -33,14 +33,14 @@ export class SharedDataRepository {
   
   /**
    * Get shared data by ID
-   * @param dataId The data ID
+   * @param id The data ID
    * @returns The shared data or null if not found
    */
-  async getDataById(dataId: string): Promise<SharedDataModel | null> {
+  async getDataById(id: string): Promise<SharedDataModel | null> {
     const { db } = await connectToDatabase();
     const collection = db.collection<SharedDataModel>(this.collectionName);
     
-    return collection.findOne({ dataId });
+    return collection.findOne({ id });
   }
   
   /**
@@ -62,14 +62,14 @@ export class SharedDataRepository {
   
   /**
    * Delete shared data metadata
-   * @param dataId The data ID to delete
+   * @param id The data ID to delete
    * @returns Whether the deletion was successful
    */
-  async deleteData(dataId: string): Promise<boolean> {
+  async deleteData(id: string): Promise<boolean> {
     const { db } = await connectToDatabase();
     const collection = db.collection<SharedDataModel>(this.collectionName);
     
-    const result = await collection.deleteOne({ dataId });
+    const result = await collection.deleteOne({ id });
     return result.deletedCount > 0;
   }
 } 

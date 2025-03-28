@@ -83,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('Creating shared data record...');
       // Create shared data record
       const sharedData = await sharedDataRepo.saveData({
-        dataId: uniqueFilename,
+        id: uniqueFilename,
         type: 'document',
         filePath: `/api/data/${uniqueFilename}`,
         timestamp: Date.now(),
@@ -103,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         url: `/api/data/${uniqueFilename}`,
         original_filename: fileData.originalFilename || '',
         file_type: fileData.mimetype || '',
-        data_id: uniqueFilename,
+        id: uniqueFilename,
         folder_path: folderPath
       });
 

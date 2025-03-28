@@ -10,7 +10,7 @@ export interface MessageModel {
   senderType: string;
   content: string;
   tags: string[];
-  dataId?: string | null;
+  dataId?: string | null;  // Extracted data ID from message content
   requestId?: string | null;
   parentRequestId?: string | null;
   status?: string | null;

@@ -1,29 +1,13 @@
 import '@/styles/globals.css';
 import type { AppProps } from 'next/app';
-import { useEffect } from 'react';
+import { WebSocketProvider } from '../contexts/WebSocketContext';
 
 function MyApp({ Component, pageProps }: AppProps) {
-  // Initialize the Socket.IO server as early as possible
-  useEffect(() => {
-    const initSocketServer = async () => {
-      try {
-        // Call the auto-init endpoint to initialize Socket.IO
-        const response = await fetch('/api/auto-init');
-        if (response.ok) {
-          console.log('Socket.IO server auto-initialized on app load');
-        } else {
-          console.error('Failed to auto-initialize Socket.IO server on app load');
-        }
-      } catch (error) {
-        console.error('Error initializing Socket.IO server on app load:', error);
-      }
-    };
-
-    // Call initialization function
-    initSocketServer();
-  }, []);
-
-  return <Component {...pageProps} />;
+  return (
+    <WebSocketProvider>
+      <Component {...pageProps} />
+    </WebSocketProvider>
+  );
 }
 
 export default MyApp; 

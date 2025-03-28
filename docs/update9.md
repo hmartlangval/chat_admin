@@ -88,7 +88,7 @@ FormData {
     url: string,
     original_filename: string,
     file_type: string,
-    data_id: string,
+    id: string,
     folder_path: string
   }>
 }
@@ -102,7 +102,7 @@ FormData {
   url: string,              // File URL path
   original_filename: string, // Original file name
   file_type: string,        // MIME type
-  data_id: string,          // Unique identifier
+  id: string,               // Unique identifier
   folder_path: string,      // Upload folder path
   created_at: Date          // Creation timestamp
 }
@@ -111,7 +111,7 @@ FormData {
 ### SharedData Collection
 ```typescript
 {
-  dataId: string,           // Unique identifier
+  id: string,               // Unique identifier
   type: 'document',         // Data type
   filePath: string,         // File URL path
   timestamp: number,        // Creation timestamp
@@ -139,7 +139,7 @@ After successful upload, a message is sent to the chat channel with the followin
         "url": "/api/data/filename.pdf",
         "original_filename": "original.pdf",
         "file_type": "application/pdf",
-        "data_id": "unique-id",
+        "id": "unique-id",
         "folder_path": "aido_order_files"
       }
     ]

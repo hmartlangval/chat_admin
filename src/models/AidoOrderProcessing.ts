@@ -11,7 +11,7 @@ export class AidoOrderProcessing {
     url: string;
     original_filename: string;
     file_type: string;
-    data_id: string;
+    id: string;
     folder_path?: string;
   }) {
     return this.repository.create(data);

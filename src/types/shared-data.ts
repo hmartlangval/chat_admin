@@ -29,7 +29,7 @@ export interface SharedDataMetadata {
  */
 export interface SharedDataModel {
   _id?: ObjectId;
-  dataId: string;
+  id: string;
   type: string;
   filePath: string;
   timestamp: number;
@@ -48,7 +48,7 @@ export interface SharedDataModel {
  */
 export interface FileUploadResponse {
   success: boolean;
-  dataId: string;
+  id: string;
   type: string;
   filename: string;
   error?: string;

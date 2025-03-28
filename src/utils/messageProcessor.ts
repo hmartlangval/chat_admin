@@ -143,6 +143,16 @@ export function extractJsonContent(content: string): {
 }
 
 /**
+ * Extract id from message content
+ * @param content Message content
+ * @returns Extracted id or null
+ */
+export function extractId(content: string): string | null {
+  const idMatch = content.match(/\[id:\s*(\w+)\]/);
+  return idMatch ? idMatch[1] : null;
+}
+
+/**
  * Process message content to extract tags, dataId, requestId, parentRequestId, and status
  * @param content Message content
  * @returns Object containing extracted tags, dataId, requestId, parentRequestId, and status
@@ -161,7 +171,7 @@ export function processMessageContent(content: string): {
   
   return {
     tags: extractTags(jsonResult.displayContent),
-    dataId: extractDataId(jsonResult.displayContent),
+    dataId: extractId(jsonResult.displayContent),
     requestId: extractRequestId(jsonResult.displayContent),
     parentRequestId: extractParentRequestId(jsonResult.displayContent),
     status: extractStatus(jsonResult.displayContent),
@@ -215,11 +225,11 @@ export function createChatMessage(
     content,            // Original content with JSON tags
     displayContent,     // Content with JSON tags replaced with placeholders
     jsonData,           // Extracted JSON data
-    tags,
-    dataId,
-    requestId,
-    parentRequestId,
-    status,
+    tags,              // Extracted tags
+    dataId,            // Extracted data ID
+    requestId,         // Extracted requestId
+    parentRequestId,   // Extracted parentRequestId
+    status,            // Extracted status
     timestamp: Date.now()
   };
 }

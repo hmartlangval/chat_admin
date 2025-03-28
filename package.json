@@ -8,7 +8,8 @@
     "build:db": "tsc -p tsconfig.db.json",
     "start": "next start",
     "lint": "next lint",
-    "test:shared-data": "node --import tsx --no-warnings src/scripts/test-shared-data.ts"
+    "test:shared-data": "node --import tsx --no-warnings src/scripts/test-shared-data.ts",
+    "test:dynamic-crud": "node --import tsx --no-warnings src/api_test/dynamic-test.ts"
   },
   "dependencies": {
     "axios": "^1.6.2",

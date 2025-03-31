@@ -5,7 +5,11 @@ import type { Socket } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import { promises as fsPromises } from 'fs';
-import { createChatMessage } from '../../utils/messageProcessor';
+import { createChatMessage, processMessage } from '../../utils/messageProcessor';
+import { SharedDataRepository } from '../../data/models/SharedData';
+import { SharedData, SharedDataMetadata } from '../../types/shared-data';
+// The MessageRepository is now imported and used within messageProcessor.ts
+// import { MessageRepository } from '../../data/models/Message';
 
 // Augment the response type to include custom socket properties
 type SocketIONextApiResponse = NextApiResponse & {
@@ -52,49 +56,25 @@ const channels = new Map<string, Channel>();
 // Make channels available globally
 (global as any).channels = channels;
 
-// Data storage for shared content
-interface SharedData {
-  id: string;
-  type: 'string' | 'image' | 'document' | 'json';
-  content: string; // For memory storage or preview
-  filePath?: string; // Path to the stored file
-  timestamp: number;
-  senderId: string;
-}
-
-// Create metadata structure
-interface SharedDataMetadata {
-  id: string;
-  type: 'string' | 'image' | 'document' | 'json';
-  filePath: string;
-  timestamp: number;
-  senderId: string;
-  originalSize: number;
-}
-
-// Create a global map to store shared data
+// Create a global map to store shared data (for backward compatibility)
 const sharedDataStore = new Map<string, SharedData>();
 // Make data store available globally
 (global as any).sharedDataStore = sharedDataStore;
 
+// The message repository instance is now created and managed within messageProcessor.ts
+// const messageRepository = new MessageRepository();
+
+// Initialize shared data repository
+const sharedDataRepository = new SharedDataRepository();
+
 // Ensure data directory exists
-const DATA_DIR = path.join(process.cwd(), 'shared_data');
-const METADATA_FILE = path.join(DATA_DIR, 'metadata.json');
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'shared_data');
 
 // Function to ensure the data directory exists
 async function ensureDataDirExists() {
   try {
     await fsPromises.mkdir(DATA_DIR, { recursive: true });
     console.log(`Data directory created/ensured at: ${DATA_DIR}`);
-    
-    // Check if metadata file exists, create it if not
-    try {
-      await fsPromises.access(METADATA_FILE);
-    } catch (err) {
-      // File doesn't exist, create it with empty array
-      await fsPromises.writeFile(METADATA_FILE, JSON.stringify([], null, 2));
-      console.log(`Created new metadata file at: ${METADATA_FILE}`);
-    }
   } catch (err) {
     console.error('Error creating data directory:', err);
   }
@@ -103,7 +83,7 @@ async function ensureDataDirExists() {
 // Function to save metadata to file
 async function saveMetadata(metadata: SharedDataMetadata[]) {
   try {
-    await fsPromises.writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
+    await fsPromises.writeFile(path.join(DATA_DIR, 'metadata.json'), JSON.stringify(metadata, null, 2));
   } catch (err) {
     console.error('Error saving metadata:', err);
   }
@@ -112,7 +92,7 @@ async function saveMetadata(metadata: SharedDataMetadata[]) {
 // Function to load metadata from file
 async function loadMetadata(): Promise<SharedDataMetadata[]> {
   try {
-    const data = await fsPromises.readFile(METADATA_FILE, 'utf8');
+    const data = await fsPromises.readFile(path.join(DATA_DIR, 'metadata.json'), 'utf8');
     return JSON.parse(data);
   } catch (err) {
     console.error('Error loading metadata:', err);
@@ -120,35 +100,46 @@ async function loadMetadata(): Promise<SharedDataMetadata[]> {
   }
 }
 
-// Initialize the data directory and load metadata at startup
+// Initialize the data directory at startup
 (async () => {
   await ensureDataDirExists();
-  const metadata = await loadMetadata();
   
-  // Load existing data into memory store
-  for (const item of metadata) {
-    let content = '';
+  // Load existing data from MongoDB into memory store for backward compatibility
+  try {
+    const allData = await sharedDataRepository.getAllData();
     
-    // For small text files, load the content into memory
-    if (item.type === 'string' || item.type === 'json') {
-      try {
-        content = await fsPromises.readFile(item.filePath, 'utf8');
-      } catch (err) {
-        console.error(`Error loading file ${item.filePath}:`, err);
+    for (const item of allData) {
+      let content = '';
+      
+      // For small text files, load the content into memory if needed
+      if ((item.type === 'string' || item.type === 'json') && item.filePath) {
+        try {
+          // Extract filename from the URL
+          const fileName = path.basename(new URL(item.filePath).pathname);
+          const localFilePath = path.join(DATA_DIR, fileName);
+          
+          if (fs.existsSync(localFilePath)) {
+            content = await fsPromises.readFile(localFilePath, 'utf8');
+          }
+        } catch (err) {
+          console.error(`Error loading file for ${item.dataId}:`, err);
+        }
       }
+      
+      sharedDataStore.set(item.dataId, {
+        id: item.dataId,
+        type: item.type as any,
+        content: content,
+        filePath: item.filePath,
+        timestamp: item.timestamp,
+        senderId: item.senderId
+      });
     }
     
-    sharedDataStore.set(item.id, {
-      id: item.id,
-      type: item.type,
-      content: content, // Only loaded for text-based content
-      filePath: item.filePath,
-      timestamp: item.timestamp,
-      senderId: item.senderId
-    });
+    console.log(`Loaded ${allData.length} shared data items from MongoDB`);
+  } catch (err) {
+    console.error('Error loading data from MongoDB:', err);
   }
-  
-  console.log(`Loaded ${metadata.length} shared data items from disk`);
 })();
 
 export default function handler(req: NextApiRequest, res: SocketIONextApiResponse) {
@@ -206,15 +197,25 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           console.log(`Creating new channel: ${channelId}`);
           channels.set(channelId, { 
             participants: new Set<Participant>(),
-            active: true, // Set to active by default when created
+            active: true,
             messages: []
           });
         }
         
         const channel = channels.get(channelId);
         if (channel) {
+          const participantId = socket.data.botId || socket.id;
+          
+          // Remove any existing participant with the same ID
+          channel.participants.forEach((p: Participant) => {
+            if (p.id === participantId) {
+              channel.participants.delete(p);
+            }
+          });
+          
+          // Add the new participant
           const participant: Participant = {
-            id: socket.data.botId || socket.id,
+            id: participantId,
             name: socket.data.name || 'Anonymous',
             type: socket.data.type || 'user'
           };
@@ -223,7 +224,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           
           // Notify all participants in the channel
           io.to(`channel:${channelId}`).emit('participant_joined', {
-            participantId: socket.data.botId || socket.id,
+            participantId: participantId,
             name: socket.data.name || 'Anonymous',
             type: socket.data.type || 'user',
             timestamp: Date.now()
@@ -263,7 +264,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       });
 
       // Chat message
-      socket.on('message', (message: { channelId: string; content: string }) => {
+      socket.on('message', async (message: { channelId: string; content: string }) => {
         console.log(`Message from ${socket.data.name || socket.id}:`, message.content);
         
         const channelId = message.channelId;
@@ -300,17 +301,16 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           });
         }
         
-        // Create the enriched message using the shared utility
-        const enrichedMessage = createChatMessage(
+        // Use the unified message processing function
+        const enrichedMessage = await processMessage(
           channelId,
           message.content,
           socket.data.botId || socket.id,
           socket.data.name || 'Anonymous',
-          socket.data.type || 'user'
+          socket.data.type || 'user',
+          channel,
+          'websocket'
         );
-        
-        // Save message to channel history
-        channel.messages.push(enrichedMessage);
         
         // Broadcast to all in the channel
         io.to(`channel:${channelId}`).emit('new_message', enrichedMessage);
@@ -344,7 +344,8 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           else if (type === 'document') fileExt = '.txt';
           
           // Determine the file path
-          let filePath = path.join(DATA_DIR, `${dataId}${fileExt}`);
+          const fileName = `${dataId}${fileExt}`;
+          let filePath = path.join(DATA_DIR, fileName);
           let content = data.content;
           let originalSize = Buffer.byteLength(content, 'utf8');
           
@@ -357,7 +358,8 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
               
               // Update file extension based on actual image type
               fileExt = `.${imageType}`;
-              filePath = path.join(DATA_DIR, `${dataId}${fileExt}`);
+              const updatedFileName = `${dataId}${fileExt}`;
+              filePath = path.join(DATA_DIR, updatedFileName);
               
               // Convert base64 to binary for file storage
               const buffer = Buffer.from(base64Data, 'base64');
@@ -377,29 +379,30 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             console.log(`Data saved to ${filePath}`);
           }
           
-          // Create metadata for this file
-          const metadataItem: SharedDataMetadata = {
-            id: dataId,
+          // Create the full URL for storage (will be used for future cloud storage)
+          const serverUrl = process.env.SERVER_URL || 'http://localhost:3000';
+          const fileUrl = `${serverUrl}/api/data/files/${path.basename(filePath)}`;
+          
+          // Save metadata to MongoDB
+          await sharedDataRepository.saveData({
+            dataId,
             type,
-            filePath,
+            filePath: fileUrl, // Store the URL instead of local path
             timestamp: Date.now(),
             senderId: socket.data.botId || socket.id,
-            originalSize
-          };
+            originalSize,
+            metadata: {},
+            createdAt: Date.now()
+          });
           
-          // Load and update metadata file
-          const metadata = await loadMetadata();
-          metadata.push(metadataItem);
-          await saveMetadata(metadata);
-          
-          // Add to in-memory store as well
+          // Add to in-memory store as well for backward compatibility
           const sharedData: SharedData = {
             id: dataId,
             type,
             content: type === 'string' || type === 'json' ? content : '', // Only keep text content in memory
-            filePath,
-            timestamp: metadataItem.timestamp,
-            senderId: metadataItem.senderId
+            filePath: fileUrl,
+            timestamp: Date.now(),
+            senderId: socket.data.botId || socket.id
           };
           
           sharedDataStore.set(dataId, sharedData);
@@ -424,40 +427,59 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
         try {
           console.log(`Data retrieval request for ID: ${dataId}`);
           
-          if (!sharedDataStore.has(dataId)) {
+          // Try to get from MongoDB first
+          const dataMetadata = await sharedDataRepository.getDataById(dataId);
+          
+          if (!dataMetadata) {
+            // Fallback to in-memory store for backward compatibility
+            if (!sharedDataStore.has(dataId)) {
+              return callback({
+                id: '',
+                type: '',
+                content: '',
+                timestamp: 0,
+                error: 'Data not found'
+              });
+            }
+            
+            const data = sharedDataStore.get(dataId)!;
             return callback({
-              id: '',
-              type: '',
-              content: '',
-              timestamp: 0,
-              error: 'Data not found'
+              id: data.id,
+              type: data.type,
+              content: data.content,
+              timestamp: data.timestamp
             });
           }
           
-          const data = sharedDataStore.get(dataId)!;
+          // Data found in MongoDB, handle accordingly
+          // Extract filename from the URL
+          let content = '';
+          const parsedUrl = new URL(dataMetadata.filePath);
+          const fileName = path.basename(parsedUrl.pathname);
+          const localFilePath = path.join(DATA_DIR, fileName);
           
-          // If data has filePath but no content, read from file
-          if (data.filePath && (!data.content || data.content === '') && 
-              (data.type === 'string' || data.type === 'json')) {
+          // For text-based content, read the file
+          if ((dataMetadata.type === 'string' || dataMetadata.type === 'json') && 
+              fs.existsSync(localFilePath)) {
             try {
-              data.content = await fsPromises.readFile(data.filePath, 'utf8');
+              content = await fsPromises.readFile(localFilePath, 'utf8');
             } catch (err: any) {
-              console.error(`Error reading file ${data.filePath}:`, err);
+              console.error(`Error reading file ${localFilePath}:`, err);
               return callback({
-                id: data.id,
-                type: data.type,
+                id: dataMetadata.dataId,
+                type: dataMetadata.type,
                 content: '',
-                timestamp: data.timestamp,
+                timestamp: dataMetadata.timestamp,
                 error: `Error reading file: ${err.message}`
               });
             }
           }
           
           callback({
-            id: data.id,
-            type: data.type,
-            content: data.content,
-            timestamp: data.timestamp
+            id: dataMetadata.dataId,
+            type: dataMetadata.type,
+            content: content,
+            timestamp: dataMetadata.timestamp
           });
         } catch (error: any) {
           console.error('Error retrieving shared data:', error);
@@ -558,23 +580,21 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
         
         // Handle any cleanup needed
         channels.forEach((channel, channelId) => {
-          // Check if this participant is in the channel
-          let participantFound = false;
+          const participantId = socket.data.botId || socket.id;
           
+          // Remove this participant from the channel
           channel.participants.forEach((participant: Participant) => {
-            if (participant.id === (socket.data.botId || socket.id)) {
+            if (participant.id === participantId) {
               channel.participants.delete(participant);
-              participantFound = true;
+              
+              // Notify others that this participant left
+              io.to(`channel:${channelId}`).emit('participant_left', {
+                participantId: participantId,
+                name: socket.data.name || 'Anonymous',
+                timestamp: Date.now()
+              });
             }
           });
-          
-          if (participantFound) {
-            io.to(`channel:${channelId}`).emit('participant_left', {
-              participantId: socket.data.botId || socket.id,
-              name: socket.data.name || 'Anonymous',
-              timestamp: Date.now()
-            });
-          }
         });
       });
 

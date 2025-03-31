@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import Head from 'next/head';
+import { StartTaskButtonBasic } from '../components/StartTaskButtonBasic';
+import { useWebSocket } from '../contexts/WebSocketContext';
 
 // Define message type for admin UI
 interface Message {
@@ -30,222 +32,183 @@ interface SharedData {
 }
 
 export default function Home() {
-  const [serverStatus, setServerStatus] = useState<'initializing' | 'running' | 'error'>('initializing');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [currentChannelId, setCurrentChannelId] = useState<string>('general');
-  const [channelActive, setChannelActive] = useState<boolean>(false);
+  // WebSocket context
+  const { 
+    messages, 
+    channelStatus, 
+    activeChannel,
+    sendMessage, 
+    switchChannel,
+    startChannel,
+    stopChannel,
+    isConnected,
+    error: wsError,
+    clearMessages
+  } = useWebSocket();
+
+  // UI-specific state
   const [messageContent, setMessageContent] = useState<string>('');
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [userScrolled, setUserScrolled] = useState<boolean>(false);
   const [sharedData, setSharedData] = useState<SharedData | null>(null);
   const [dataModalOpen, setDataModalOpen] = useState<boolean>(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [userScrolled, setUserScrolled] = useState<boolean>(false);
 
-  // Auto-initialize the Socket.IO server on component mount
-  useEffect(() => {
-    const initServer = async () => {
-      try {
-        // Call the auto-init endpoint
-        const response = await fetch('/api/auto-init');
-
-        if (response.ok) {
-          setServerStatus('running');
-          setErrorMessage(null);
-          console.log('Socket.IO server initialized automatically');
-        } else {
-          const errorData = await response.json();
-          console.error('Failed to initialize Socket.IO server:', errorData);
-          setServerStatus('error');
-          setErrorMessage(errorData.error || 'Failed to initialize Socket.IO server');
-        }
-      } catch (err: any) {
-        console.error('Error initializing Socket.IO server:', err);
-        setServerStatus('error');
-        setErrorMessage(err.message || 'Unknown error');
-      }
-    };
-
-    initServer();
-  }, []);
-
-  // Function to scroll to bottom of messages
+  // Scroll handling
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   };
 
-  // Detect when user scrolls the messages container
   const handleScroll = () => {
     if (messagesContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
-      // Consider user scrolled if they're not at the bottom (with a small buffer)
-      const isAtBottom = scrollHeight
-        - scrollTop - clientHeight < 50;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
       setUserScrolled(!isAtBottom);
     }
   };
 
   // Scroll to bottom when messages change, unless user has scrolled up
-  useEffect(() => {
+  React.useEffect(() => {
     if (!userScrolled) {
       scrollToBottom();
     }
   }, [messages, userScrolled]);
 
-  // Function to periodically fetch messages and participants data
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
-    if (serverStatus === 'running') {
-      // Initial fetch
-      fetchChannelData();
-
-      // Set up interval to fetch every 2 seconds
-      intervalId = setInterval(fetchChannelData, 2000);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [serverStatus, currentChannelId]);
-
-  // Function to fetch channel data (messages and participants)
-  const fetchChannelData = async () => {
-    try {
-      // Fetch channel details
-      const channelResponse = await fetch(`/api/channels/${currentChannelId}/details`);
-      if (channelResponse.ok) {
-        const channelData = await channelResponse.json();
-        setParticipants(channelData.participants || []);
-        setChannelActive(channelData.active || false);
-      }
-
-      // Fetch channel messages
-      const messagesResponse = await fetch(`/api/channels/${currentChannelId}/messages`);
-      if (messagesResponse.ok) {
-        const messagesData = await messagesResponse.json();
-        setMessages(messagesData.messages || []);
-      }
-    } catch (err) {
-      console.error('Error fetching channel data:', err);
-    }
-  };
-
-  // Function to handle channel changes
+  // Handle channel change
   const handleChannelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCurrentChannelId(e.target.value);
+    switchChannel(e.target.value);
   };
 
-  // Function to handle channel operations
-  const handleChannelOperation = async (operation: 'start' | 'stop') => {
-    try {
-      const response = await fetch(`/api/channels/${currentChannelId}/${operation}`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        setChannelActive(operation === 'start');
-        // Refresh data
-        fetchChannelData();
-      } else {
-        const errorText = await response.text();
-        console.error(`Failed to ${operation} channel:`, errorText);
-      }
-    } catch (err) {
-      console.error(`Error during ${operation} channel:`, err);
+  // Handle channel operations
+  const handleChannelOperation = (operation: 'start' | 'stop') => {
+    if (operation === 'start') {
+      startChannel();
+    } else {
+      stopChannel();
     }
   };
 
-  // Function to clear chat history
-  const handleClearChat = async () => {
-    try {
-      const response = await fetch(`/api/channels/${currentChannelId}/clear`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        // Refresh data to show empty chat
-        fetchChannelData();
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to clear chat:', errorText);
-      }
-    } catch (err) {
-      console.error('Error clearing chat:', err);
-    }
+  // Handle message send
+  const handleSendMessage = () => {
+    if (!messageContent.trim() || !isConnected) return;
+    fetch(`/api/channels/${activeChannel}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channelId: activeChannel,
+        content: messageContent,
+        senderName: 'Admin', // Replace with the desired sender name
+      }),
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('Message sent:', data);
+    })
+    .catch(error => {
+      console.error('Error sending message:', error);
+    });
+    setMessageContent('');
+    setUserScrolled(false);
   };
 
-  // Function to send a message from the admin interface
-  const handleSendMessage = async () => {
-    if (!messageContent.trim() || !currentChannelId || serverStatus !== 'running') return;
-
-    try {
-      // Call API endpoint to send message
-      const response = await fetch(`/api/channels/${currentChannelId}/sendMessage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: messageContent,
-          sender: 'Admin',
-        }),
-      });
-
-      if (response.ok) {
-        // Clear the input after sending
-        setMessageContent('');
-        // Refresh messages
-        fetchChannelData();
-      } else {
-        console.error('Failed to send message:', await response.text());
-      }
-    } catch (err) {
-      console.error('Error sending message:', err);
-    }
-  };
-
-  // Function to handle data reference clicks in messages
+  // Handle data reference clicks
   const handleDataReferenceClick = async (dataId: string) => {
     try {
-      console.log(`Fetching data with ID: ${dataId}`);
-      
       const response = await fetch(`/api/data/${dataId}`);
       if (response.ok) {
         const result = await response.json();
         setSharedData(result.data);
         setDataModalOpen(true);
-      } else {
-        console.error('Failed to fetch shared data:', await response.text());
       }
     } catch (err) {
       console.error('Error fetching shared data:', err);
     }
   };
 
-  // Function to render message content with data reference links
+  // Render message content with data reference links
   const renderMessageContent = (content: string) => {
-    // Regular expression to find data references [data_id: xxx]
-    const dataRefRegex = /\[data_id:\s*([a-zA-Z0-9_]+)\]/g;
+    // First check for data references [id: xxx]
+    const dataRefRegex = /\[id:\s*([a-zA-Z0-9_]+)\]/g;
+    const dataRefParts = content.split(dataRefRegex);
     
-    // Split the content by data references
-    const parts = content.split(dataRefRegex);
-    
-    if (parts.length <= 1) {
-      // No data references, return plain text
+    // If there are no data references, check for JSON content
+    if (dataRefParts.length <= 1) {
+      // Check for JSON tags [json]...[/json]
+      const jsonRegex = /\[json\]([\s\S]*?)\[\/json\]/g;
+      if (content.match(jsonRegex)) {
+        // Process JSON content
+        let processedContent = content;
+        let match;
+        let index = 0;
+        const jsonSegments: Record<string, any> = {};
+        
+        // Reset regex state
+        jsonRegex.lastIndex = 0;
+        
+        while ((match = jsonRegex.exec(content)) !== null) {
+          try {
+            const fullMatch = match[0];
+            const jsonContent = match[1];
+            const jsonData = JSON.parse(jsonContent);
+            const jsonId = `inline-json-${index++}`;
+            
+            // Store the parsed JSON
+            jsonSegments[jsonId] = jsonData;
+            
+            // Replace the JSON block with a placeholder
+            processedContent = processedContent.replace(
+              fullMatch,
+              `[json-view id="${jsonId}"]`
+            );
+          } catch (err) {
+            console.error('Error parsing inline JSON:', err);
+          }
+        }
+        
+        // If we processed any JSON, render with the JsonViewButton components
+        if (Object.keys(jsonSegments).length > 0) {
+          const parts = processedContent.split(/(\[json-view id="[^"]+"\])/);
+          return parts.map((part, idx) => {
+            const placeholderMatch = part.match(/\[json-view id="([^"]+)"\]/);
+            if (placeholderMatch && placeholderMatch[1] && jsonSegments[placeholderMatch[1]]) {
+              return (
+                <button
+                  key={idx}
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200 mx-1"
+                  onClick={() => {
+                    setSharedData({
+                      id: placeholderMatch[1],
+                      type: 'json',
+                      content: JSON.stringify(jsonSegments[placeholderMatch[1]], null, 2),
+                      timestamp: Date.now()
+                    });
+                    setDataModalOpen(true);
+                  }}
+                >
+                  View JSON
+                </button>
+              );
+            }
+            return part ? <span key={idx}>{part}</span> : null;
+          });
+        }
+      }
+      
+      // If no special content found, return plain text
       return content;
     }
     
-    // Find all matches to extract data IDs
+    // Process data references
     const matches = Array.from(content.matchAll(dataRefRegex));
     const result = [];
     
-    for (let i = 0; i < parts.length; i++) {
+    for (let i = 0; i < dataRefParts.length; i++) {
       // Add the text part
-      if (parts[i]) {
-        result.push(<span key={`text-${i}`}>{parts[i]}</span>);
+      if (dataRefParts[i]) {
+        result.push(<span key={`text-${i}`}>{dataRefParts[i]}</span>);
       }
       
       // Add the data reference link if there's a corresponding match
@@ -329,15 +292,19 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-800">Chat Server Admin</h1>
             <div className="flex items-center space-x-2">
-              <div className={`h-2.5 w-2.5 rounded-full ${serverStatus === 'running' ? 'bg-green-500' : serverStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+              <StartTaskButtonBasic
+                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
+                isChannelActive={channelStatus.active}
+              />
+              <div className={`h-2.5 w-2.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <span className="text-sm text-gray-600">
-                {serverStatus === 'running' ? 'Server Running' : serverStatus === 'error' ? 'Server Error' : 'Initializing...'}
+                {isConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
           </div>
-          {errorMessage && (
+          {wsError && (
             <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-2 mt-2 text-sm rounded">
-              {errorMessage}
+              {wsError.message}
             </div>
           )}
         </header>
@@ -373,11 +340,10 @@ export default function Home() {
             <div className="bg-white shadow-sm rounded-md p-3">
               <h2 className="text-sm font-semibold text-gray-700 mb-2">Participants</h2>
               <div className="space-y-1.5">
-                {participants.length > 0 ? (
-                  participants.map((participant: Participant) => (
+                {channelStatus.participants.length > 0 ? (
+                  channelStatus.participants.map((participant) => (
                     <div key={participant.id} className="p-1.5 bg-gray-50 rounded text-xs">
                       <div className="font-medium">{participant.name}</div>
-                      <div className="text-gray-500">{participant.type}</div>
                     </div>
                   ))
                 ) : (
@@ -402,7 +368,7 @@ export default function Home() {
                       name="channelId"
                       id="channelId"
                       className="focus:ring-indigo-500 focus:border-indigo-500 block w-full rounded-md text-sm border-gray-300 h-8"
-                      value={currentChannelId}
+                      value={activeChannel}
                       onChange={handleChannelChange}
                     />
                   </div>
@@ -410,16 +376,16 @@ export default function Home() {
               </div>
               <div className="flex space-x-2 ml-2">
                 <button
-                  onClick={handleClearChat}
+                  onClick={clearMessages}
                   className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500"
                 >
                   Clear Chat
                 </button>
-                {channelActive ? (
+                {channelStatus.active ? (
                   <button
                     onClick={() => handleChannelOperation('stop')}
                     className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-yellow-500"
-                    disabled={serverStatus !== 'running'}
+                    disabled={!isConnected}
                   >
                     Stop Channel
                   </button>
@@ -427,7 +393,7 @@ export default function Home() {
                   <button
                     onClick={() => handleChannelOperation('start')}
                     className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500"
-                    disabled={serverStatus !== 'running'}
+                    disabled={!isConnected}
                   >
                     Start Channel
                   </button>
@@ -435,7 +401,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Messages - Simple fixed height container with scroll */}
+            {/* Messages */}
             <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
@@ -443,19 +409,19 @@ export default function Home() {
             >
               <div className="space-y-3">
                 {messages.length > 0 ? (
-                  messages.map((message: Message) => (
+                  messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.senderId === 'system' ? 'justify-center' : 'justify-start'
-                        }`}
+                      className={`flex ${message.senderId === 'system' ? 'justify-center' : 'justify-start'}`}
                     >
                       <div
-                        className={`rounded-md px-3 py-2 ${message.senderId === 'system'
+                        className={`rounded-md px-3 py-2 ${
+                          message.senderId === 'system'
                             ? 'bg-gray-100 text-gray-800 text-xs max-w-md mx-auto'
                             : message.senderType === 'server'
                               ? 'bg-blue-50 text-gray-800 max-w-3xl'
                               : 'bg-green-50 text-gray-800 max-w-3xl'
-                          }`}
+                        }`}
                       >
                         {message.senderId !== 'system' ? (
                           <div className="text-sm whitespace-pre-line">
@@ -474,7 +440,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Admin message - make it editable for sending messages with improved styling */}
+            {/* Message Input */}
             <div className="border-t p-3">
               <div className="flex items-center space-x-2">
                 <input
@@ -485,36 +451,28 @@ export default function Home() {
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') {
                       handleSendMessage();
-                      // Reset userScrolled when user sends a message
-                      setUserScrolled(false);
                     }
                   }}
                   placeholder="Type a message as Admin..."
                   className="block w-full rounded-md border-2 border-gray-400 text-sm py-2 px-3 h-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  disabled={serverStatus !== 'running' || !channelActive}
+                  disabled={!isConnected || !channelStatus.active}
                 />
-                <button
+                {/* <button
                   onClick={() => {
                     setMessageContent("@fileprep let's start fileprep process");
                     setTimeout(() => {
                       handleSendMessage();
-                      setUserScrolled(false);
-                      // Reset userScrolled when user sends a message
                     }, 1000);
                   }}
                   className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
                 >
                   Fileprep
-                </button>
+                </button> */}
 
                 <button
-                  onClick={() => {
-                    handleSendMessage();
-                    // Reset userScrolled when user sends a message
-                    setUserScrolled(false);
-                  }}
+                  onClick={handleSendMessage}
                   className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
-                  disabled={serverStatus !== 'running' || !channelActive || !messageContent.trim()}
+                  disabled={!isConnected || !channelStatus.active || !messageContent.trim()}
                 >
                   Send
                 </button>

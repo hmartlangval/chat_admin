@@ -1,5 +1,5 @@
 /shared_data
-
+uploads/*
 
 # dependencies
 /node_modules

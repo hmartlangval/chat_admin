@@ -1,7 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import type { Server as NetServer } from 'http';
-import { createChatMessage } from '../../../../utils/messageProcessor';
+import { processMessage } from '../../../../utils/messageProcessor';
+// The MessageRepository is now imported and used within messageProcessor.ts
+// import { MessageRepository } from '../../../../data/models/Message';
 
 // Define the extended response type
 type ExtendedNextApiResponse = NextApiResponse & {
@@ -12,7 +14,10 @@ type ExtendedNextApiResponse = NextApiResponse & {
   };
 };
 
-export default function handler(
+// The message repository instance is now created and managed within messageProcessor.ts
+// const messageRepository = new MessageRepository();
+
+export default async function handler(
   req: NextApiRequest,
   res: ExtendedNextApiResponse
 ) {
@@ -55,17 +60,16 @@ export default function handler(
       return res.status(400).json({ error: 'Cannot send message to inactive channel' });
     }
     
-    // Create the message using the shared utility
-    const message = createChatMessage(
+    // Use the unified message processing function
+    const message = await processMessage(
       channelId,
       content,
       'admin',
       sender,
-      'admin'
+      'admin',
+      channel,
+      'rest-api'
     );
-    
-    // Save message to channel history
-    channel.messages.push(message);
     
     // Emit the message to the channel
     io.to(`channel:${channelId}`).emit('new_message', message);

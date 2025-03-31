@@ -15,12 +15,12 @@ export class SharedDataRepository {
     const collection = db.collection<SharedDataModel>(this.collectionName);
     
     // Check if data with this ID already exists
-    const existing = await collection.findOne({ id: data.id });
-    
+    const existing = await collection.findOne({ dataId: data.dataId });
+
     if (existing) {
       // Update existing data
       await collection.updateOne(
-        { id: data.id },
+        { dataId: data.dataId },
         { $set: data }
       );
       return data;

@@ -82,24 +82,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       console.log('Creating shared data record...');
       // Create shared data record
-      const sharedData = await sharedDataRepo.saveData({
-        id: uniqueFilename,
+      const sharedDataRecord = await sharedDataRepo.saveData({
+        dataId: uniqueFilename,
         type: 'document',
         filePath: `/api/data/${uniqueFilename}`,
         timestamp: Date.now(),
         senderId: 'system',
-        originalSize: fileData.size || 0,
-        createdAt: Date.now(),
+        originalSize: fileData.size,
         metadata: {
           filename: fileData.originalFilename || '',
-          contentType: fileData.mimetype || '',
-          size: fileData.size || 0
-        }
+          contentType: fileData.mimetype || 'application/pdf',
+          size: fileData.size
+        },
+        createdAt: Date.now()
       });
 
       console.log('Creating aido order record...');
       // Create aido order record
-      const record = await aidoOrder.create({
+      const records = await aidoOrder.create({
         url: `/api/data/${uniqueFilename}`,
         original_filename: fileData.originalFilename || '',
         file_type: fileData.mimetype || '',
@@ -107,7 +107,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         folder_path: folderPath
       });
 
-      uploadedFiles.push(record);
+      // Add the record to uploadedFiles array
+      if (records && records.length > 0) {
+        const record = records[0];
+        uploadedFiles.push({
+          url: record.url,
+          original_filename: record.original_filename,
+          file_type: record.file_type,
+          id: record.id,
+          folder_path: record.folder_path
+        });
+      }
       console.log('File processed successfully:', uniqueFilename);
     }
 

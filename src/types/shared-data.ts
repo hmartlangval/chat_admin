@@ -29,7 +29,7 @@ export interface SharedDataMetadata {
  */
 export interface SharedDataModel {
   _id?: ObjectId;
-  id: string;
+  dataId: string;
   type: string;
   filePath: string;
   timestamp: number;

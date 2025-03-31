@@ -327,6 +327,20 @@ export default function Home() {
                 )}
               </div>
             </div>
+            
+            <div className="bg-white shadow-sm rounded-md p-3 mt-3">
+              <h2 className="text-sm font-semibold text-gray-700 mb-2">Tools</h2>
+              <div className="space-y-1.5">
+                <a 
+                  href="/servicemanager" 
+                  className="block p-2 bg-indigo-50 rounded text-sm text-indigo-700 hover:bg-indigo-100 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Service Manager
+                </a>
+              </div>
+            </div>
           </div>
 
           {/* Center Area - Chat View */}

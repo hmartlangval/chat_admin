@@ -197,15 +197,25 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           console.log(`Creating new channel: ${channelId}`);
           channels.set(channelId, { 
             participants: new Set<Participant>(),
-            active: true, // Set to active by default when created
+            active: true,
             messages: []
           });
         }
         
         const channel = channels.get(channelId);
         if (channel) {
+          const participantId = socket.data.botId || socket.id;
+          
+          // Remove any existing participant with the same ID
+          channel.participants.forEach((p: Participant) => {
+            if (p.id === participantId) {
+              channel.participants.delete(p);
+            }
+          });
+          
+          // Add the new participant
           const participant: Participant = {
-            id: socket.data.botId || socket.id,
+            id: participantId,
             name: socket.data.name || 'Anonymous',
             type: socket.data.type || 'user'
           };
@@ -214,7 +224,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           
           // Notify all participants in the channel
           io.to(`channel:${channelId}`).emit('participant_joined', {
-            participantId: socket.data.botId || socket.id,
+            participantId: participantId,
             name: socket.data.name || 'Anonymous',
             type: socket.data.type || 'user',
             timestamp: Date.now()
@@ -570,23 +580,21 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
         
         // Handle any cleanup needed
         channels.forEach((channel, channelId) => {
-          // Check if this participant is in the channel
-          let participantFound = false;
+          const participantId = socket.data.botId || socket.id;
           
+          // Remove this participant from the channel
           channel.participants.forEach((participant: Participant) => {
-            if (participant.id === (socket.data.botId || socket.id)) {
+            if (participant.id === participantId) {
               channel.participants.delete(participant);
-              participantFound = true;
+              
+              // Notify others that this participant left
+              io.to(`channel:${channelId}`).emit('participant_left', {
+                participantId: participantId,
+                name: socket.data.name || 'Anonymous',
+                timestamp: Date.now()
+              });
             }
           });
-          
-          if (participantFound) {
-            io.to(`channel:${channelId}`).emit('participant_left', {
-              participantId: socket.data.botId || socket.id,
-              name: socket.data.name || 'Anonymous',
-              timestamp: Date.now()
-            });
-          }
         });
       });
 

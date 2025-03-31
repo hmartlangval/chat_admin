@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import Head from 'next/head';
-import { StartTaskButton } from '../components/StartTaskButton';
+import { StartTaskButtonBasic } from '../components/StartTaskButtonBasic';
 import { useWebSocket } from '../contexts/WebSocketContext';
 
 // Define message type for admin UI
@@ -92,7 +92,24 @@ export default function Home() {
   // Handle message send
   const handleSendMessage = () => {
     if (!messageContent.trim() || !isConnected) return;
-    sendMessage(messageContent);
+    fetch(`/api/channels/${activeChannel}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channelId: activeChannel,
+        content: messageContent,
+        senderName: 'Admin', // Replace with the desired sender name
+      }),
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('Message sent:', data);
+    })
+    .catch(error => {
+      console.error('Error sending message:', error);
+    });
     setMessageContent('');
     setUserScrolled(false);
   };
@@ -275,7 +292,7 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-800">Chat Server Admin</h1>
             <div className="flex items-center space-x-2">
-              <StartTaskButton
+              <StartTaskButtonBasic
                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
                 isChannelActive={channelStatus.active}
               />

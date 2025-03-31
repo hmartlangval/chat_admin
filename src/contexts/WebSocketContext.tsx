@@ -64,8 +64,8 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       timeout: 20000,
       path: '/api/socket',
       query: {
-        botId: "service",
-        botName: "Service"
+        botId: "system",
+        botName: "System"
       }
     });
 
@@ -76,9 +76,9 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       
       // Register the service
       newSocket.emit('register', {
-        botId: "service",
-        name: "Service",
-        type: "service"
+        botId: "system",
+        name: "System",
+        type: "system"
       });
       
       // Join default channel
@@ -110,11 +110,13 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       console.log(`Participant joined: ${data.name} (${data.participantId})`);
       setChannelStatus(prev => ({
         ...prev,
-        participants: [...prev.participants, {
-          id: data.participantId,
-          name: data.name,
-          type: data.type || 'user'
-        }]
+        participants: prev.participants.some(p => p.id === data.participantId) 
+          ? prev.participants 
+          : [...prev.participants, {
+              id: data.participantId,
+              name: data.name,
+              type: data.type || 'user'
+            }]
       }));
     });
 
@@ -129,7 +131,11 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     // Handle channel events
     newSocket.on('channel_started', (data) => {
       console.log(`Channel started: ${data.channelId}`);
-      setChannelStatus(prev => ({ ...prev, active: true }));
+      setChannelStatus(prev => ({ 
+        ...prev, 
+        active: true,
+        participants: [] // Reset participants when channel starts
+      }));
     });
 
     newSocket.on('channel_stopped', (data) => {

@@ -312,30 +312,6 @@ export default function Home() {
         <div className="grid grid-cols-12 gap-3">
           {/* Left Sidebar - Bot Information & Participants */}
           <div className="col-span-12 md:col-span-3 lg:col-span-2">
-            <div className="bg-white shadow-sm rounded-md p-3 mb-3">
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">Bot Information</h2>
-              <div className="space-y-3 text-xs">
-                <div className="border-l-2 border-blue-500 pl-2">
-                  <h3 className="font-medium text-gray-800">Server Bot</h3>
-                  <p className="text-gray-600 text-xs">
-                    Initiates conversations and responds to all messages.
-                  </p>
-                  <p className="text-gray-500 mt-1 text-xs">
-                    <code>cd bots/server-bot && npm start</code>
-                  </p>
-                </div>
-
-                <div className="border-l-2 border-green-500 pl-2">
-                  <h3 className="font-medium text-gray-800">User Bot</h3>
-                  <p className="text-gray-600 text-xs">
-                    Responds only when tagged in messages.
-                  </p>
-                  <p className="text-gray-500 mt-1 text-xs">
-                    <code>cd bots/user-bot && npm start</code>
-                  </p>
-                </div>
-              </div>
-            </div>
 
             <div className="bg-white shadow-sm rounded-md p-3">
               <h2 className="text-sm font-semibold text-gray-700 mb-2">Participants</h2>

@@ -20,7 +20,7 @@ export function FileUploadModal({
   onUploadComplete,
   title = 'Upload PDF Files',
   folderPath = 'aido_order_files',
-  maxFileSize = 3 * 1024 * 1024, // 3MB default
+  maxFileSize = 5 * 1024 * 1024, // 0MB default
   allowedTypes = ['application/pdf'],
   multiple = true
 }: FileUploadModalProps) {
@@ -82,7 +82,7 @@ export function FileUploadModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{title} Max File Size: {(maxFileSize / (1024 * 1024)).toFixed(2)} MB</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <input

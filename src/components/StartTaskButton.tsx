@@ -66,7 +66,7 @@ export function StartTaskButton({
         onUploadComplete={handleUploadComplete}
         title="Upload Order Files"
         folderPath="aido_order_files"
-        maxFileSize={3 * 1024 * 1024} // 3MB
+        maxFileSize={process.env.NEXT_PUBLIC_FILE_UPLOAD_MAX_SIZE_MB ? parseInt(process.env.NEXT_PUBLIC_FILE_UPLOAD_MAX_SIZE_MB) * 1024 * 1024 : 5 * 1024 * 1024} // 3MB
         allowedTypes={['application/pdf']}
         multiple={true}
       />

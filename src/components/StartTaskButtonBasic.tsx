@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Button } from './UI/button';
 import { FileUploadModal } from './FileUploadModal';
 import { useWebSocket } from '../contexts/WebSocketContext';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 interface StartTaskButtonProps {
   className?: string;
@@ -64,7 +67,7 @@ export function StartTaskButtonBasic({
         onUploadComplete={handleUploadComplete}
         title="Upload PDF File"
         folderPath="aido_order_files"
-        maxFileSize={3 * 1024 * 1024} // 3MB
+        maxFileSize={process.env.NEXT_PUBLIC_FILE_UPLOAD_MAX_SIZE_MB ? parseInt(process.env.NEXT_PUBLIC_FILE_UPLOAD_MAX_SIZE_MB) * 1024 * 1024 : 5 * 1024 * 1024}
         allowedTypes={['application/pdf']}
         multiple={false}
       />

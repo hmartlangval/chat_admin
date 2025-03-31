@@ -457,7 +457,7 @@ export default function Home() {
                   className="block w-full rounded-md border-2 border-gray-400 text-sm py-2 px-3 h-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   disabled={!isConnected || !channelStatus.active}
                 />
-                <button
+                {/* <button
                   onClick={() => {
                     setMessageContent("@fileprep let's start fileprep process");
                     setTimeout(() => {
@@ -467,7 +467,7 @@ export default function Home() {
                   className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
                 >
                   Fileprep
-                </button>
+                </button> */}
 
                 <button
                   onClick={handleSendMessage}

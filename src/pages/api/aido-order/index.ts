@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { AidoOrderProcessing } from '../../../models/AidoOrderProcessing';
+import { AidoOrderProcessing } from '../../../data/models/AidoOrderProcessing';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {

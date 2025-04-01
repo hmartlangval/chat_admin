@@ -170,7 +170,7 @@ const ServiceManager: React.FC = () => {
     };
 
     return (
-        <div className="container">
+        <div className="p-4 min-h-screen bg-white">
             {notification && (
                 <div className={`notification ${notification.type}`}>
                     {notification.message}
@@ -226,12 +226,6 @@ const ServiceManager: React.FC = () => {
             </div>
 
             <style jsx>{`
-                .container {
-                    padding: 20px;
-                    max-width: 1200px;
-                    margin: 0 auto;
-                }
-
                 .header {
                     display: flex;
                     justify-content: space-between;

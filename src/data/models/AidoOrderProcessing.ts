@@ -1,4 +1,4 @@
-import { DynamicRepository } from '../repositories/DynamicRepository';
+import { DynamicRepository } from '../../repositories/DynamicRepository';
 
 export class AidoOrderProcessing {
   private repository: DynamicRepository;

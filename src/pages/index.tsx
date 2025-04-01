@@ -33,11 +33,11 @@ interface SharedData {
 
 export default function Home() {
   // WebSocket context
-  const { 
-    messages, 
-    channelStatus, 
+  const {
+    messages,
+    channelStatus,
     activeChannel,
-    sendMessage, 
+    sendMessage,
     switchChannel,
     startChannel,
     stopChannel,
@@ -103,13 +103,13 @@ export default function Home() {
         senderName: 'Admin', // Replace with the desired sender name
       }),
     })
-    .then(response => response.json())
-    .then(data => {
-      console.log('Message sent:', data);
-    })
-    .catch(error => {
-      console.error('Error sending message:', error);
-    });
+      .then(response => response.json())
+      .then(data => {
+        console.log('Message sent:', data);
+      })
+      .catch(error => {
+        console.error('Error sending message:', error);
+      });
     setMessageContent('');
     setUserScrolled(false);
   };
@@ -133,7 +133,7 @@ export default function Home() {
     // First check for data references [id: xxx]
     const dataRefRegex = /\[id:\s*([a-zA-Z0-9_]+)\]/g;
     const dataRefParts = content.split(dataRefRegex);
-    
+
     // If there are no data references, check for JSON content
     if (dataRefParts.length <= 1) {
       // Check for JSON tags [json]...[/json]
@@ -144,20 +144,20 @@ export default function Home() {
         let match;
         let index = 0;
         const jsonSegments: Record<string, any> = {};
-        
+
         // Reset regex state
         jsonRegex.lastIndex = 0;
-        
+
         while ((match = jsonRegex.exec(content)) !== null) {
           try {
             const fullMatch = match[0];
             const jsonContent = match[1];
             const jsonData = JSON.parse(jsonContent);
             const jsonId = `inline-json-${index++}`;
-            
+
             // Store the parsed JSON
             jsonSegments[jsonId] = jsonData;
-            
+
             // Replace the JSON block with a placeholder
             processedContent = processedContent.replace(
               fullMatch,
@@ -167,7 +167,7 @@ export default function Home() {
             console.error('Error parsing inline JSON:', err);
           }
         }
-        
+
         // If we processed any JSON, render with the JsonViewButton components
         if (Object.keys(jsonSegments).length > 0) {
           const parts = processedContent.split(/(\[json-view id="[^"]+"\])/);
@@ -196,21 +196,21 @@ export default function Home() {
           });
         }
       }
-      
+
       // If no special content found, return plain text
       return content;
     }
-    
+
     // Process data references
     const matches = Array.from(content.matchAll(dataRefRegex));
     const result = [];
-    
+
     for (let i = 0; i < dataRefParts.length; i++) {
       // Add the text part
       if (dataRefParts[i]) {
         result.push(<span key={`text-${i}`}>{dataRefParts[i]}</span>);
       }
-      
+
       // Add the data reference link if there's a corresponding match
       const matchIndex = Math.floor(i / 2);
       if (matches[matchIndex]) {
@@ -226,20 +226,20 @@ export default function Home() {
         );
       }
     }
-    
+
     return result;
   };
 
   // Data modal component
   const DataModal = ({ data, onClose }: { data: SharedData, onClose: () => void }) => {
     if (!data) return null;
-    
+
     return (
       <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
           <div className="p-4 border-b flex justify-between items-center">
             <h3 className="text-lg font-medium">Shared Data</h3>
-            <button 
+            <button
               className="text-gray-400 hover:text-gray-500"
               onClick={onClose}
             >
@@ -248,14 +248,14 @@ export default function Home() {
               </svg>
             </button>
           </div>
-          
+
           <div className="p-4 flex-1 overflow-auto">
             {data.type === 'image' ? (
               <div className="flex justify-center">
-                <img 
-                  src={data.content.startsWith('data:') ? data.content : `/api/data/${data.id}`} 
-                  alt="Shared Image" 
-                  className="max-w-full max-h-[60vh] object-contain" 
+                <img
+                  src={data.content.startsWith('data:') ? data.content : `/api/data/${data.id}`}
+                  alt="Shared Image"
+                  className="max-w-full max-h-[60vh] object-contain"
                 />
               </div>
             ) : data.type === 'json' ? (
@@ -268,7 +268,7 @@ export default function Home() {
               </div>
             )}
           </div>
-          
+
           <div className="p-4 border-t">
             <div className="text-xs text-gray-500">
               Type: {data.type} • Shared at: {new Date(data.timestamp).toLocaleString()}
@@ -282,24 +282,39 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>Chat Server Admin</title>
-        <meta name="description" content="Chat Server Admin Interface" />
+        <title>AI-DO Admin</title>
+        <meta name="description" content="AI-DO Admin Interface" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div className="container mx-auto px-2 py-3 max-w-7xl">
         <header className="bg-white shadow-sm rounded-md p-3 mb-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-800">Chat Server Admin</h1>
             <div className="flex items-center space-x-2">
-              <StartTaskButtonBasic
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
-                isChannelActive={channelStatus.active}
-              />
-              <div className={`h-2.5 w-2.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <h1 className="text-xl font-bold text-gray-800 pb-1">AI-DO Admin</h1>
+              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <span className="text-sm text-gray-600">
                 {isConnected ? 'Connected' : 'Disconnected'}
               </span>
+            </div>
+            <div className="flex items-center space-x-2">
+            {channelStatus.active ? (
+                  <button
+                    onClick={() => handleChannelOperation('stop')}
+                    className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-yellow-500"
+                    disabled={!isConnected}
+                  >
+                    Stop Channel
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleChannelOperation('start')}
+                    className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500"
+                    disabled={!isConnected}
+                  >
+                    Start Channel
+                  </button>
+                )}              
             </div>
           </div>
           {wsError && (
@@ -314,7 +329,7 @@ export default function Home() {
           <div className="col-span-12 md:col-span-3 lg:col-span-2">
 
             <div className="bg-white shadow-sm rounded-md p-3">
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">Participants</h2>
+              <h2 className="text-md font-bold text-gray-700 mb-2">Participants</h2>
               <div className="space-y-1.5">
                 {channelStatus.participants.length > 0 ? (
                   channelStatus.participants.map((participant) => (
@@ -327,17 +342,27 @@ export default function Home() {
                 )}
               </div>
             </div>
-            
+
             <div className="bg-white shadow-sm rounded-md p-3 mt-3">
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">Tools</h2>
-              <div className="space-y-1.5">
-                <a 
-                  href="/servicemanager" 
-                  className="block p-2 bg-indigo-50 rounded text-sm text-indigo-700 hover:bg-indigo-100 transition-colors"
+              <h2 className="text-md text-gray-700 mb-2 font-bold">Tools</h2>
+              <div className="space-y-1.5 mb-2">
+                <a
+                  href="/servicemanager"
+                  className="block text-sm text-indigo-700 hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   Service Manager
+                </a>
+              </div>
+              <div className="space-y-1.5 mb-2">
+                <a
+                  href="/tasks"
+                  className="block text-sm text-indigo-700 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Tasks
                 </a>
               </div>
             </div>
@@ -365,29 +390,17 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex space-x-2 ml-2">
+                <StartTaskButtonBasic
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
+                  isChannelActive={channelStatus.active}
+                />
                 <button
                   onClick={clearMessages}
                   className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500"
                 >
                   Clear Chat
                 </button>
-                {channelStatus.active ? (
-                  <button
-                    onClick={() => handleChannelOperation('stop')}
-                    className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-yellow-500"
-                    disabled={!isConnected}
-                  >
-                    Stop Channel
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleChannelOperation('start')}
-                    className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500"
-                    disabled={!isConnected}
-                  >
-                    Start Channel
-                  </button>
-                )}
+                
               </div>
             </div>
 
@@ -405,13 +418,12 @@ export default function Home() {
                       className={`flex ${message.senderId === 'system' ? 'justify-center' : 'justify-start'}`}
                     >
                       <div
-                        className={`rounded-md px-3 py-2 ${
-                          message.senderId === 'system'
+                        className={`rounded-md px-3 py-2 ${message.senderId === 'system'
                             ? 'bg-gray-100 text-gray-800 text-xs max-w-md mx-auto'
                             : message.senderType === 'server'
                               ? 'bg-blue-50 text-gray-800 max-w-3xl'
                               : 'bg-green-50 text-gray-800 max-w-3xl'
-                        }`}
+                          }`}
                       >
                         {message.senderId !== 'system' ? (
                           <div className="text-sm whitespace-pre-line">
@@ -474,8 +486,8 @@ export default function Home() {
 
       {/* Data view modal */}
       {dataModalOpen && sharedData && (
-        <DataModal 
-          data={sharedData} 
+        <DataModal
+          data={sharedData}
           onClose={() => {
             setDataModalOpen(false);
             setSharedData(null);

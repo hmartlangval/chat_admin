@@ -3,7 +3,7 @@ import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
 import { FILE_UPLOAD_CONFIG } from '../../../config/file-upload';
-import { AidoOrderProcessing } from '../../../models/AidoOrderProcessing';
+import { AidoOrderProcessing } from '../../../data/models/AidoOrderProcessing';
 import { SharedDataRepository } from '../../../data/models/SharedData';
 
 export const config = {

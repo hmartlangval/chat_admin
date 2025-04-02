@@ -38,6 +38,7 @@ export class DynamicRepository {
   async update(id: string, data: any): Promise<any | null> {
     const collection = await this.init();
     const now = new Date();
+
     const result = await collection.findOneAndUpdate(
       { _id: new ObjectId(id) },
       { 
@@ -46,9 +47,22 @@ export class DynamicRepository {
           updatedAt: now
         }
       },
-      { returnDocument: 'after' }
+      { 
+        returnDocument: 'after',
+        includeResultMetadata: true
+      }
     );
-    return result?.value || null;
+    
+    // Handle different result structures based on MongoDB driver version
+    if (result) {
+      if (result.value) {
+        return result.value;
+      } else if (result.ok && result) {
+        return result;
+      }
+    }
+    
+    return null;
   }
 
   async delete(id: string): Promise<boolean> {

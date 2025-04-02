@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import ParticipantActionModal from './ParticipantActionModal';
 
 interface Participant {
   id: string;
   name: string;
   type: string;
   is_active: boolean;
+  window_hwnd?: number;
+  commands?: Record<string, string | undefined>;
 }
 
 interface ParticipantsListProps {
@@ -21,6 +24,8 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
   const [channelParticipants, setChannelParticipants] = useState<Participant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch all available participants
   const fetchParticipants = async () => {
@@ -72,6 +77,13 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
     if (onRefresh) onRefresh();
   };
 
+  // Handle click on a participant
+  const handleParticipantClick = (participant: Participant) => {
+    setSelectedParticipant(participant);
+    setIsModalOpen(true);
+  };
+
+
   return (
     <div className="bg-white rounded-lg shadow p-4">
       <div className="flex justify-between items-center mb-4">
@@ -97,7 +109,8 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
           {participants.map(participant => (
             <li 
               key={participant.id}
-              className="flex items-center justify-between p-2 border rounded"
+              className="flex items-center justify-between p-2 border rounded cursor-pointer hover:bg-gray-50"
+              onClick={() => handleParticipantClick(participant)}
             >
               <div className="flex items-center">
                 <div 
@@ -123,7 +136,8 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
             {channelParticipants.map(participant => (
               <li 
                 key={participant.id}
-                className="flex items-center justify-between p-2 border rounded bg-gray-50"
+                className="flex items-center justify-between p-2 border rounded bg-gray-50 cursor-pointer hover:bg-gray-100"
+                onClick={() => handleParticipantClick(participant)}
               >
                 <span>{participant.name}</span>
                 <span className="text-xs text-gray-500">{participant.type}</span>
@@ -135,6 +149,13 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
           </ul>
         </div>
       )}
+
+      {/* Participant Action Modal */}
+      <ParticipantActionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        participant={selectedParticipant}
+      />
     </div>
   );
 };

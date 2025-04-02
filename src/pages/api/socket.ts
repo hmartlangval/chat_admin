@@ -26,6 +26,11 @@ interface Participant {
   name: string;
   type: string;
   window_hwnd?: number;  // Add window handle
+  commands?: {
+    restart?: string;
+    remove?: string;
+    [x:string]: string | undefined;
+  }
 }
 
 // Define message type
@@ -174,11 +179,12 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       console.log('Client connected:', socket.id);
       
       // Bot registration
-      socket.on('register', (data: { botId: string; name: string; type?: string; window_hwnd?: number }) => {
+      socket.on('register', (data: { botId: string; name: string; type?: string; commands?: any; window_hwnd?: number }) => {
         console.log('Bot registered:', data);
         socket.data.botId = data.botId;
         socket.data.name = data.name;
         socket.data.type = data.type || 'bot';
+        socket.data.commands = data.commands || {};
         socket.data.window_hwnd = data.window_hwnd || 0;
         
         // Broadcast to all clients that a new bot is available
@@ -186,7 +192,8 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           botId: data.botId,
           name: data.name,
           type: data.type || 'bot',
-          window_hwnd: data.window_hwnd || 0
+          window_hwnd: data.window_hwnd || 0,
+          commands: data.commands || {}
         });
       });
 
@@ -221,6 +228,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             id: participantId,
             name: socket.data.name || 'Anonymous',
             type: socket.data.type || 'user',
+            commands: socket.data.commands || {},
             window_hwnd: socket.data.window_hwnd || 0  // Include window handle
           };
           
@@ -232,6 +240,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             name: socket.data.name || 'Anonymous',
             type: socket.data.type || 'user',
             window_hwnd: socket.data.window_hwnd || 0,  // Include window handle
+            commands: socket.data.commands || {},
             timestamp: Date.now()
           });
           
@@ -290,7 +299,8 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             id: message.senderId || socket.data.botId || socket.id,
             name: message.senderName || socket.data.name || 'Anonymous',
             type: socket.data.type || 'user',
-            window_hwnd: socket.data.window_hwnd || 0
+            window_hwnd: socket.data.window_hwnd || 0,
+            commands: socket.data.commands || {}
           };
           channel.participants.add(participant);
         }

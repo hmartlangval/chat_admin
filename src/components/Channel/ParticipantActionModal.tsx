@@ -1,0 +1,125 @@
+import React from 'react';
+import { useWebSocket } from '../../contexts/WebSocketContext';
+
+interface ParticipantActionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  participant: {
+    id: string;
+    name: string;
+    type: string;
+    window_hwnd?: number;
+    commands?: Record<string, string | undefined>;
+  } | null;
+}
+
+const ParticipantActionModal: React.FC<ParticipantActionModalProps> = ({
+  isOpen,
+  onClose,
+  participant,
+}) => {
+  const { activeChannel, isConnected } = useWebSocket();
+
+  if (!isOpen || !participant) return null;
+
+  const notifyInChannel = async (message: string) => {
+    if (!participant) return;
+
+    try {
+      const messageContent = {
+        channelId: activeChannel,
+        content: message,
+        senderId: 'system',
+        senderName: 'System',
+      };
+
+      await fetch(`/api/channels/${activeChannel}/sendMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messageContent),
+      });
+    } catch {}
+  }
+
+  const handleCancel = async () => {
+    if (!participant) return;
+
+    try {
+      // Use fetch to send the control command through the API
+      const response = await fetch(`/api/channels/${activeChannel}/controlCommand`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          targetId: participant.id,
+          command: 'cancel'
+        }),
+      });
+
+      if (response.ok) {
+        console.log(`Cancel command sent to ${participant.name}`);
+        await notifyInChannel(`${participant.name} task has been cancelled`);
+        onClose();
+      } else {
+        console.error('Failed to send cancel command');
+      }
+    } catch (error) {
+      console.error('Error sending cancel command:', error);
+    }
+  };
+
+  const isBot = true; // participant.type === 'bot';
+  const hasWindowHandle = !!participant.window_hwnd;
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-xs w-full p-3">
+        {/* Header - Name and Type in single row */}
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center">
+            <h3 className="text-sm font-medium mr-2">{participant.name}</h3>
+            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">
+              {participant.type}
+            </span>
+          </div>
+          <button
+            className="text-gray-400 hover:text-gray-500"
+            onClick={onClose}
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Window Handle */}
+        {hasWindowHandle && (
+          <div className="text-xs mb-3">
+            <span className="inline-flex items-center bg-gray-100 px-2 py-0.5 rounded">
+              <span className="font-medium text-gray-500 mr-1">HWND:</span>
+              <span>{participant.window_hwnd}</span>
+            </span>
+          </div>
+        )}
+
+        {/* Actions Section */}
+        {isBot && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <h4 className="text-xs font-medium text-gray-500 mb-1.5">Actions</h4>
+            <button
+              onClick={handleCancel}
+              className="text-red-600 hover:text-red-800 text-xs hover:underline transition-colors"
+            >
+              Cancel Task
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ParticipantActionModal; 

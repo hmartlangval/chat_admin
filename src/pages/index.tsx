@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { StartTaskButtonBasic } from '../components/StartTaskButtonBasic';
 import { useWebSocket } from '../contexts/WebSocketContext';
+import ParticipantActionModal from '../components/Channel/ParticipantActionModal';
 
 // Define message type for admin UI
 interface Message {
@@ -20,6 +21,8 @@ interface Participant {
   id: string;
   name: string;
   type: string;
+  window_hwnd?: number;
+  commands?: Record<string, string | undefined>;
 }
 
 // Define shared data type
@@ -52,6 +55,10 @@ export default function Home() {
   const [dataModalOpen, setDataModalOpen] = useState<boolean>(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState<boolean>(false);
+  
+  // Participant action modal state
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+  const [participantModalOpen, setParticipantModalOpen] = useState<boolean>(false);
 
   // Scroll handling
   const scrollToBottom = () => {
@@ -127,6 +134,33 @@ export default function Home() {
       console.error('Error fetching shared data:', err);
     }
   };
+
+  // Handle participant click to open modal
+  const handleParticipantClick = (participant: Participant) => {
+    // Define standard command sets based on participant type
+    const standardBotCommands = {
+      restart: "^{F5}",  // Ctrl+F5
+      pause: "^p",       // Ctrl+P
+      stop: "^c",        // Ctrl+C
+      resume: undefined  // Example of disabled command
+    };
+
+    // Add commands based on participant type
+    const enhancedParticipant = { 
+      ...participant,
+      // Add commands based on participant type and existing commands
+      commands: participant.type === 'bot' 
+        ? { ...standardBotCommands, ...participant.commands }  // Use existing commands or provide defaults
+        : participant.window_hwnd 
+          ? { sendMessage: "^m", close: "^{F4}" } // Generic commands for non-bot windows 
+          : {}
+    };
+    
+    setSelectedParticipant(enhancedParticipant);
+    setParticipantModalOpen(true);
+  };
+
+
 
   // Render message content with data reference links
   const renderMessageContent = (content: string) => {
@@ -332,14 +366,44 @@ export default function Home() {
               <h2 className="text-md font-bold text-gray-700 mb-2">Participants</h2>
               <div className="space-y-1.5">
                 {channelStatus.participants.length > 0 ? (
-                  channelStatus.participants.map((participant) => (
-                    <div key={participant.id} className="p-1.5 bg-gray-50 rounded text-xs">
-                      <div className="font-medium">{participant.name}{participant.window_hwnd ? ` ( ${participant.window_hwnd})`: ''}</div>
-                    </div>
-                  ))
+                  channelStatus.participants.map((participant) => {
+                    const isBot = participant.type === 'bot';
+                    const hasWindow = !!participant.window_hwnd;
+                    
+                    return (
+                      <div 
+                        key={participant.id} 
+                        className={`p-1.5 rounded text-xs cursor-pointer transition-colors flex justify-between items-center ${
+                          isBot ? 'bg-blue-50 hover:bg-blue-100' : 'bg-gray-50 hover:bg-gray-100'
+                        }`}
+                        onClick={() => handleParticipantClick(participant)}
+                        title={`Click to manage participant ${isBot ? 'and send commands' : ''}`}
+                      >
+                        <div className="font-medium flex items-center">
+                          {isBot && (
+                            <span className="inline-block w-2 h-2 bg-blue-400 rounded-full mr-1.5" />
+                          )}
+                          {participant.name}
+                        </div>
+                        <div className="flex space-x-1">
+                          {hasWindow && (
+                            <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                              HWND
+                            </span>
+                          )}
+                          {isBot && (
+                            <span className="text-xs bg-green-100 text-green-800 px-1 rounded">
+                              Bot
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
                 ) : (
                   <div className="text-gray-500 text-xs">No participants yet</div>
                 )}
+                <div className="text-gray-500 text-xs mt-1 italic">Click on participants to manage</div>
               </div>
             </div>
 
@@ -494,6 +558,13 @@ export default function Home() {
           }}
         />
       )}
+
+      {/* Participant action modal */}
+      <ParticipantActionModal
+        isOpen={participantModalOpen}
+        onClose={() => setParticipantModalOpen(false)}
+        participant={selectedParticipant}
+      />
     </div>
   );
 } 

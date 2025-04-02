@@ -27,7 +27,7 @@ export default async function handler(
   }
   
   const { channelId } = req.query;
-  const { content, sender = 'Admin' } = req.body;
+  const { content, sender = 'Admin', senderId = 'admin' } = req.body;
   
   if (!channelId || typeof channelId !== 'string') {
     return res.status(400).json({ error: 'Channel ID is required' });
@@ -64,7 +64,7 @@ export default async function handler(
     const message = await processMessage(
       channelId,
       content,
-      'admin',
+      senderId ?? 'admin',
       sender,
       'admin',
       channel,

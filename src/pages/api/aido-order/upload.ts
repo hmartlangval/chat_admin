@@ -3,7 +3,7 @@ import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
 import { FILE_UPLOAD_CONFIG } from '../../../config/file-upload';
-import { AidoOrderProcessing } from '../../../data/models/AidoOrderProcessing';
+import { AidoOrderProcessing, AidoOrderRecord } from '../../../data/models/AidoOrderProcessing';
 import { SharedDataRepository } from '../../../data/models/SharedData';
 
 export const config = {
@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const uploadedFiles = [];
+    const uploadedFiles: AidoOrderRecord[] = [];
     const aidoOrder = new AidoOrderProcessing();
     const sharedDataRepo = new SharedDataRepository();
 
@@ -104,7 +104,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         original_filename: fileData.originalFilename || '',
         file_type: fileData.mimetype || '',
         id: uniqueFilename,
-        folder_path: folderPath
+        folder_path: folderPath,
+        property_status: 'pending',
+        tax_status: 'pending',
+        extracted_data: {}
       });
 
       // Add the record to uploadedFiles array
@@ -115,7 +118,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           original_filename: record.original_filename,
           file_type: record.file_type,
           id: record.id,
-          folder_path: record.folder_path
+          folder_path: record.folder_path,
+          property_status: record.property_status,
+          tax_status: record.tax_status,
+          extracted_data: record.extracted_data
         });
       }
       console.log('File processed successfully:', uniqueFilename);

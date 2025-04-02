@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './UI/dialog';
 import { Button } from './UI/button';
 import { Progress } from './UI/progress';
+import { AidoOrderRecord } from '../data/models/AidoOrderProcessing';
 
 interface FileUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUploadComplete: (records: any[]) => void;
+  onUploadComplete: (records: AidoOrderRecord[]) => void;
   title?: string;
   folderPath?: string;
   maxFileSize?: number;

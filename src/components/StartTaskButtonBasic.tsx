@@ -32,7 +32,8 @@ export function StartTaskButtonBasic({
         data: records.map(record => ({
           pdf_path: `${window.location.origin}${record.url}`,
           original_filename: record.original_filename,
-          file_type: record.file_type
+          file_type: record.file_type,
+          id: record.id,
         }))
       };
 

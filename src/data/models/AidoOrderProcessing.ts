@@ -1,5 +1,16 @@
 import { DynamicRepository } from '../../repositories/DynamicRepository';
 
+export interface AidoOrderRecord {
+  url: string;
+  original_filename: string;
+  file_type: string;
+  id: string;
+  folder_path: string;
+  property_status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  tax_status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  extracted_data: Record<string, any>;
+}
+
 export class AidoOrderProcessing {
   private repository: DynamicRepository;
 
@@ -7,13 +18,7 @@ export class AidoOrderProcessing {
     this.repository = new DynamicRepository('aido_order_processing');
   }
 
-  async create(data: {
-    url: string;
-    original_filename: string;
-    file_type: string;
-    id: string;
-    folder_path?: string;
-  }) {
+  async create(data: Partial<AidoOrderRecord>) {
     return this.repository.create(data);
   }
 

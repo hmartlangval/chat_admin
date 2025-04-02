@@ -83,7 +83,7 @@ export default function Home() {
   }, [messages, userScrolled]);
 
   // Handle channel change
-  const handleChannelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChannelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     switchChannel(e.target.value);
   };
 
@@ -160,8 +160,6 @@ export default function Home() {
     setParticipantModalOpen(true);
   };
 
-
-
   // Render message content with data reference links
   const renderMessageContent = (content: string) => {
     // First check for data references [id: xxx]
@@ -195,35 +193,40 @@ export default function Home() {
             // Replace the JSON block with a placeholder
             processedContent = processedContent.replace(
               fullMatch,
-              `[json-view id="${jsonId}"]`
+              `[JSON data]`
             );
           } catch (err) {
             console.error('Error parsing inline JSON:', err);
           }
         }
 
-        // If we processed any JSON, render with the JsonViewButton components
+        // If we processed any JSON, render with simple link
         if (Object.keys(jsonSegments).length > 0) {
-          const parts = processedContent.split(/(\[json-view id="[^"]+"\])/);
+          const parts = processedContent.split(/(\[JSON data\])/);
           return parts.map((part, idx) => {
-            const placeholderMatch = part.match(/\[json-view id="([^"]+)"\]/);
-            if (placeholderMatch && placeholderMatch[1] && jsonSegments[placeholderMatch[1]]) {
+            if (part === '[JSON data]') {
+              const jsonId = `inline-json-${Math.floor(idx/2)}`;
               return (
-                <button
-                  key={idx}
-                  className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200 mx-1"
-                  onClick={() => {
-                    setSharedData({
-                      id: placeholderMatch[1],
-                      type: 'json',
-                      content: JSON.stringify(jsonSegments[placeholderMatch[1]], null, 2),
-                      timestamp: Date.now()
-                    });
-                    setDataModalOpen(true);
-                  }}
-                >
-                  View JSON
-                </button>
+                <React.Fragment key={idx}>
+                  <span>[</span>
+                  <a
+                    href="#"
+                    className="text-blue-600 underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSharedData({
+                        id: jsonId,
+                        type: 'json',
+                        content: JSON.stringify(jsonSegments[jsonId], null, 2),
+                        timestamp: Date.now()
+                      });
+                      setDataModalOpen(true);
+                    }}
+                  >
+                    JSON data
+                  </a>
+                  <span>]</span>
+                </React.Fragment>
               );
             }
             return part ? <span key={idx}>{part}</span> : null;
@@ -250,13 +253,20 @@ export default function Home() {
       if (matches[matchIndex]) {
         const dataId = matches[matchIndex][1];
         result.push(
-          <button
-            key={`data-${i}`}
-            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200 mx-1"
-            onClick={() => handleDataReferenceClick(dataId)}
-          >
-            View Shared Data
-          </button>
+          <React.Fragment key={`data-${i}`}>
+            <span>[</span>
+            <a
+              href="#"
+              className="text-blue-600 underline"
+              onClick={(e) => {
+                e.preventDefault();
+                handleDataReferenceClick(dataId);
+              }}
+            >
+              Data: {dataId}
+            </a>
+            <span>]</span>
+          </React.Fragment>
         );
       }
     }
@@ -433,36 +443,39 @@ export default function Home() {
           </div>
 
           {/* Center Area - Chat View */}
-          <div className="col-span-12 md:col-span-9 lg:col-span-10 bg-white shadow-sm rounded-md flex flex-col">
+          <div className="col-span-12 md:col-span-9 lg:col-span-10 bg-gray-900 shadow-sm rounded-md flex flex-col">
             {/* Channel Controls */}
-            <div className="border-b p-3 flex items-center justify-between">
+            <div className="border-b border-gray-700 p-2 flex items-center justify-between bg-gray-800">
               <div className="flex-1 max-w-md">
                 <div className="flex items-center space-x-2">
-                  <label htmlFor="channelId" className="block text-xs font-medium text-gray-700 whitespace-nowrap">
+                  <label htmlFor="channelId" className="block text-xs font-medium text-gray-300 whitespace-nowrap">
                     Channel:
                   </label>
                   <div className="flex-1">
-                    <input
-                      type="text"
+                    <select
                       name="channelId"
                       id="channelId"
-                      className="focus:ring-indigo-500 focus:border-indigo-500 block w-full rounded-md text-sm border-gray-300 h-8"
+                      className="focus:ring-blue-500 focus:border-blue-500 block w-full rounded-sm text-xs border-gray-700 bg-gray-700 text-gray-200 h-6 appearance-none px-2"
                       value={activeChannel}
                       onChange={handleChannelChange}
-                    />
+                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")", backgroundPosition: "right 0.25rem center", backgroundRepeat: "no-repeat", backgroundSize: "1rem 1rem", paddingRight: "2rem" }}
+                    >
+                      <option value={activeChannel}>{activeChannel}</option>
+                      <option value="general">general</option>
+                    </select>
                   </div>
                 </div>
               </div>
-              <div className="flex space-x-2 ml-2">
+              <div className="flex space-x-1 ml-2">
                 <StartTaskButtonBasic
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
+                  className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
                   isChannelActive={channelStatus.active}
                 />
                 <button
                   onClick={clearMessages}
-                  className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-red-500"
+                  className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none"
                 >
-                  Clear Chat
+                  Clear
                 </button>
                 
               </div>
@@ -472,42 +485,39 @@ export default function Home() {
             <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="p-3 overflow-y-auto h-[500px]"
+              className="p-3 overflow-y-auto h-[500px] font-mono text-sm bg-gray-900 text-gray-100"
             >
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {messages.length > 0 ? (
                   messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.senderId === 'system' ? 'justify-center' : 'justify-start'}`}
+                      className="text-left"
                     >
-                      <div
-                        className={`rounded-md px-3 py-2 ${message.senderId === 'system'
-                            ? 'bg-gray-100 text-gray-800 text-xs max-w-md mx-auto'
-                            : message.senderType === 'server'
-                              ? 'bg-blue-50 text-gray-800 max-w-3xl'
-                              : 'bg-green-50 text-gray-800 max-w-3xl'
-                          }`}
-                      >
-                        {message.senderId !== 'system' ? (
-                          <div className="text-sm whitespace-pre-line">
-                            <span className="font-bold text-gray-700 mr-2">{message.senderName}:</span>
+                      {message.senderId === 'system' ? (
+                        <div className="text-gray-400">
+                          {renderMessageContent(message.content)}
+                        </div>
+                      ) : (
+                        <div>
+                          <span className={`${message.senderType === 'server' ? 'text-cyan-300' : 'text-green-300'} mr-2`}>
+                            {message.senderName}:
+                          </span>
+                          <span className="text-gray-100">
                             {renderMessageContent(message.content)}
-                          </div>
-                        ) : (
-                          <div className="text-sm whitespace-pre-line">{renderMessageContent(message.content)}</div>
-                        )}
-                      </div>
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
-                  <div className="text-center text-gray-500 text-sm">No messages yet</div>
+                  <div className="text-gray-500 text-sm">No messages yet</div>
                 )}
               </div>
             </div>
 
             {/* Message Input */}
-            <div className="border-t p-3">
+            <div className="border-t border-gray-700 p-3 bg-gray-800">
               <div className="flex items-center space-x-2">
                 <input
                   id="messageInput"
@@ -520,24 +530,13 @@ export default function Home() {
                     }
                   }}
                   placeholder="Type a message as Admin..."
-                  className="block w-full rounded-md border-2 border-gray-400 text-sm py-2 px-3 h-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="block w-full rounded-md border-0 bg-gray-700 text-gray-100 text-sm py-2 px-3 h-10 shadow-sm focus:ring-1 focus:ring-blue-500"
                   disabled={!isConnected || !channelStatus.active}
                 />
-                {/* <button
-                  onClick={() => {
-                    setMessageContent("@fileprep let's start fileprep process");
-                    setTimeout(() => {
-                      handleSendMessage();
-                    }, 1000);
-                  }}
-                  className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
-                >
-                  Fileprep
-                </button> */}
 
                 <button
                   onClick={handleSendMessage}
-                  className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-indigo-500"
+                  className="inline-flex items-center px-3 py-2 h-10 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   disabled={!isConnected || !channelStatus.active || !messageContent.trim()}
                 >
                   Send

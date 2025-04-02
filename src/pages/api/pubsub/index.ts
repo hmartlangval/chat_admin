@@ -29,8 +29,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!data || !data.id) {
         return res.status(400).json({ error: 'Missing required id field' });
       }
+
+      const payload: Partial<PubSubRecord> = {
+        id: data.id,
+        data: data.data || {},
+        prop: 1,
+        tax: 1,
+      }
       
-      const created = await pubsub.create(data);
+      const created = await pubsub.create(payload);
       return res.status(201).json({ record: created });
     } else {
       return res.status(405).json({ error: 'Method not allowed' });

@@ -117,20 +117,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (records && records.length > 0) {
         const record = records[0];
         
-        // Create a PubSub record for this new order
-        const pubsubRecord = await pubsub.create({
-          id: record._id.toString(),
-          prop: 1,
-          tax: 1,
-          data: {
-            url: record.url,
-            original_filename: record.original_filename,
-            file_type: record.file_type,
-            folder_path: record.folder_path
-          }
-        });
+        // // Create a PubSub record for this new order
+        // const pubsubRecord = await pubsub.create({
+        //   id: record._id.toString(),
+        //   prop: 1,
+        //   tax: 1,
+        //   data: {
+        //     url: record.url,
+        //     original_filename: record.original_filename,
+        //     file_type: record.file_type,
+        //     folder_path: record.folder_path
+        //   }
+        // });
         
-        console.log('Created PubSub record:', pubsubRecord._id, 'for order ID:', record._id.toString());
+        // console.log('Created PubSub record:', pubsubRecord._id, 'for order ID:', record._id.toString());
         
         uploadedFiles.push({
           url: record.url,

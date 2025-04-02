@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb';
 import { DynamicRepository } from '../../repositories/DynamicRepository';
 import { AidoOrderProcessing } from './AidoOrderProcessing';
 
@@ -56,7 +57,7 @@ export class PubSub {
   }
 
   async findById(id: string): Promise<PubSubRecord | null> {
-    const records = await this.repository.find({ id });
+    const records = await this.repository.find({ _id: new ObjectId(id) });
     return records && records.length > 0 ? records[0] as PubSubRecord : null;
   }
 

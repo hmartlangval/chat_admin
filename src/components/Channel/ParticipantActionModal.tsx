@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 
 interface ParticipantActionModalProps {
@@ -19,6 +19,22 @@ const ParticipantActionModal: React.FC<ParticipantActionModalProps> = ({
   participant,
 }) => {
   const { activeChannel, isConnected } = useWebSocket();
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen || !participant) return null;
 
@@ -71,7 +87,7 @@ const ParticipantActionModal: React.FC<ParticipantActionModalProps> = ({
     }
   };
 
-  const isBot = true; // participant.type === 'bot';
+  const isBot = participant.type === 'task_bot';
   const hasWindowHandle = !!participant.window_hwnd;
 
   return (
@@ -106,17 +122,19 @@ const ParticipantActionModal: React.FC<ParticipantActionModalProps> = ({
         )}
 
         {/* Actions Section */}
-        {isBot && (
-          <div className="mt-2 pt-2 border-t border-gray-100">
-            <h4 className="text-xs font-medium text-gray-500 mb-1.5">Actions</h4>
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <h4 className="text-xs font-medium text-gray-500 mb-1.5">Actions</h4>
+          {isBot ? (
             <button
               onClick={handleCancel}
-              className="text-red-600 hover:text-red-800 text-xs hover:underline transition-colors"
+              className="px-3 py-1 bg-red-100 text-red-600 hover:bg-red-200 text-xs rounded-md transition-colors font-medium"
             >
               Cancel Task
             </button>
-          </div>
-        )}
+          ) : (
+            <div className="text-xs text-gray-500 italic">No actions available</div>
+          )}
+        </div>
       </div>
     </div>
   );

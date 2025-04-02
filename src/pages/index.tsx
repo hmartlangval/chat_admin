@@ -334,7 +334,7 @@ export default function Home() {
                 {channelStatus.participants.length > 0 ? (
                   channelStatus.participants.map((participant) => (
                     <div key={participant.id} className="p-1.5 bg-gray-50 rounded text-xs">
-                      <div className="font-medium">{participant.name}</div>
+                      <div className="font-medium">{participant.name}{participant.window_hwnd ? ` ( ${participant.window_hwnd})`: ''}</div>
                     </div>
                   ))
                 ) : (

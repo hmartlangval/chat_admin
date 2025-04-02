@@ -25,6 +25,7 @@ interface Participant {
   id: string;
   name: string;
   type: string;
+  window_hwnd?: number;  // Add window handle
 }
 
 // Define message type
@@ -173,17 +174,19 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       console.log('Client connected:', socket.id);
       
       // Bot registration
-      socket.on('register', (data: { botId: string; name: string; type?: string }) => {
+      socket.on('register', (data: { botId: string; name: string; type?: string; window_hwnd?: number }) => {
         console.log('Bot registered:', data);
         socket.data.botId = data.botId;
         socket.data.name = data.name;
         socket.data.type = data.type || 'bot';
+        socket.data.window_hwnd = data.window_hwnd || 0;
         
         // Broadcast to all clients that a new bot is available
         io.emit('bot_registered', {
           botId: data.botId,
           name: data.name,
-          type: data.type || 'bot'
+          type: data.type || 'bot',
+          window_hwnd: data.window_hwnd || 0
         });
       });
 
@@ -217,7 +220,8 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           const participant: Participant = {
             id: participantId,
             name: socket.data.name || 'Anonymous',
-            type: socket.data.type || 'user'
+            type: socket.data.type || 'user',
+            window_hwnd: socket.data.window_hwnd || 0  // Include window handle
           };
           
           channel.participants.add(participant);
@@ -227,6 +231,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             participantId: participantId,
             name: socket.data.name || 'Anonymous',
             type: socket.data.type || 'user',
+            window_hwnd: socket.data.window_hwnd || 0,  // Include window handle
             timestamp: Date.now()
           });
           
@@ -264,7 +269,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       });
 
       // Chat message
-      socket.on('message', async (message: { channelId: string; content: string }) => {
+      socket.on('message', async (message: { channelId: string; content: string, senderName: string, senderId: string }) => {
         console.log(`Message from ${socket.data.name || socket.id}:`, message.content);
         
         const channelId = message.channelId;
@@ -282,9 +287,10 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           
           // Make sure the sender is in the channel
           const participant: Participant = {
-            id: socket.data.botId || socket.id,
-            name: socket.data.name || 'Anonymous',
-            type: socket.data.type || 'user'
+            id: message.senderId || socket.data.botId || socket.id,
+            name: message.senderName || socket.data.name || 'Anonymous',
+            type: socket.data.type || 'user',
+            window_hwnd: socket.data.window_hwnd || 0
           };
           channel.participants.add(participant);
         }

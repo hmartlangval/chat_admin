@@ -19,6 +19,7 @@ interface ChannelStatus {
     id: string;
     name: string;
     type: string;
+    window_hwnd?: number;
   }>;
 }
 

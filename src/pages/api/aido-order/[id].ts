@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { AidoOrderProcessing, AidoOrderRecord } from '../../../data/models/AidoOrderProcessing';
 import { ObjectId } from 'mongodb';
+import { broadcastAidoRecordUpdated, broadcastAidoRecordDeleted } from '../../../lib/socketServer';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
@@ -43,6 +44,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Record not found' });
       }
       
+      // Broadcast the update to all connected clients
+      broadcastAidoRecordUpdated(updatedRecord as AidoOrderRecord);
+      
       return res.status(200).json({ record: updatedRecord });
     } catch (error) {
       console.error('Error updating record:', error);
@@ -58,6 +62,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!result) {
         return res.status(404).json({ error: 'Record not found' });
       }
+      
+      // Broadcast the deletion to all connected clients
+      broadcastAidoRecordDeleted(id as string);
       
       return res.status(200).json({ success: true });
     } catch (error) {

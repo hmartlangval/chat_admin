@@ -10,6 +10,7 @@ import { SharedDataRepository } from '../../data/models/SharedData';
 import { SharedData, SharedDataMetadata } from '../../types/shared-data';
 // The MessageRepository is now imported and used within messageProcessor.ts
 // import { MessageRepository } from '../../data/models/Message';
+import { setSocketServer } from '../../lib/socketServer';
 
 // Augment the response type to include custom socket properties
 type SocketIONextApiResponse = NextApiResponse & {
@@ -174,6 +175,8 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
     
     // Store the io instance on the server object
     res.socket.server.io = io;
+
+    setSocketServer(io);
 
     io.on('connection', (socket: Socket) => {
       console.log('Client connected:', socket.id);

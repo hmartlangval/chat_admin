@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useReducer } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { AidoOrderRecord } from '../data/models/AidoOrderProcessing';
 
 // Basic types
 interface Message {
@@ -35,6 +36,9 @@ interface WebSocketContextType {
   // UI state
   activeChannel: string;
   
+  // AidoOrder state
+  aidoRecords: AidoOrderRecord[];
+  
   // Actions
   sendMessage: (content: string) => void;
   switchChannel: (channelId: string) => void;
@@ -46,6 +50,34 @@ interface WebSocketContextType {
 // Create context
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
+// Create a reducer for AidoOrder records
+type AidoOrderAction = 
+  | { type: 'RECORD_CREATED', payload: AidoOrderRecord }
+  | { type: 'RECORD_UPDATED', payload: AidoOrderRecord }
+  | { type: 'RECORD_DELETED', payload: { id: string } }
+  | { type: 'RECORDS_LOADED', payload: AidoOrderRecord[] };
+
+function aidoOrderReducer(state: AidoOrderRecord[], action: AidoOrderAction): AidoOrderRecord[] {
+  switch (action.type) {
+    case 'RECORD_CREATED':
+      return [...state, action.payload];
+    
+    case 'RECORD_UPDATED':
+      return state.map(record => 
+        record.id === action.payload.id ? action.payload : record
+      );
+    
+    case 'RECORD_DELETED':
+      return state.filter(record => record.id !== action.payload.id);
+    
+    case 'RECORDS_LOADED':
+      return action.payload;
+      
+    default:
+      return state;
+  }
+}
+
 // Provider component
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -54,6 +86,9 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [channelStatus, setChannelStatus] = useState<ChannelStatus>({ active: false, participants: [] });
   const [activeChannel, setActiveChannel] = useState('general');
+  
+  // Add AidoOrder state using reducer
+  const [aidoRecords, dispatchAidoOrder] = useReducer(aidoOrderReducer, []);
 
   // Initialize socket connection
   useEffect(() => {
@@ -144,6 +179,31 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       setChannelStatus(prev => ({ ...prev, active: false }));
     });
 
+    // Add listeners for AidoOrderRecord updates
+    newSocket.on('aido_record_created', (data) => {
+      console.log('AidoOrder record created:', data);
+      dispatchAidoOrder({ 
+        type: 'RECORD_CREATED', 
+        payload: data.record 
+      });
+    });
+
+    newSocket.on('aido_record_updated', (data) => {
+      console.log('AidoOrder record updated:', data);
+      dispatchAidoOrder({ 
+        type: 'RECORD_UPDATED', 
+        payload: data.record 
+      });
+    });
+
+    newSocket.on('aido_record_deleted', (data) => {
+      console.log('AidoOrder record deleted:', data);
+      dispatchAidoOrder({ 
+        type: 'RECORD_DELETED', 
+        payload: { id: data.id } 
+      });
+    });
+
     setSocket(newSocket);
 
     return () => {
@@ -204,6 +264,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     messages,
     channelStatus,
     activeChannel,
+    aidoRecords,
     sendMessage,
     switchChannel,
     startChannel,

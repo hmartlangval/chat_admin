@@ -5,6 +5,7 @@ import path from 'path';
 import { FILE_UPLOAD_CONFIG } from '../../../config/file-upload';
 import { AidoOrderProcessing, AidoOrderRecord } from '../../../data/models/AidoOrderProcessing';
 import { SharedDataRepository } from '../../../data/models/SharedData';
+import { broadcastAidoRecordCreated } from '../../../lib/socketServer';
 
 export const config = {
   api: {
@@ -123,6 +124,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           tax_status: record.tax_status,
           extracted_data: record.extracted_data
         });
+
+        // Broadcast the record creation
+        broadcastAidoRecordCreated(record);
       }
       console.log('File processed successfully:', uniqueFilename);
     }

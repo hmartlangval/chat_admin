@@ -6,6 +6,7 @@ import { FILE_UPLOAD_CONFIG } from '../../../config/file-upload';
 import { AidoOrderProcessing, AidoOrderRecord } from '../../../data/models/AidoOrderProcessing';
 import { SharedDataRepository } from '../../../data/models/SharedData';
 import { broadcastAidoRecordCreated } from '../../../lib/socketServer';
+import { PubSub } from '../../../data/models/PubSub';
 
 export const config = {
   api: {
@@ -54,6 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const uploadedFiles: AidoOrderRecord[] = [];
     const aidoOrder = new AidoOrderProcessing();
     const sharedDataRepo = new SharedDataRepository();
+    const pubsub = new PubSub();
 
     console.log('Processing files:', files);
     // Access the files array from the files object
@@ -114,6 +116,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Add the record to uploadedFiles array
       if (records && records.length > 0) {
         const record = records[0];
+        
+        // Create a PubSub record for this new order
+        const pubsubRecord = await pubsub.create({
+          id: record._id.toString(),
+          prop: 1,
+          tax: 1,
+          data: {
+            url: record.url,
+            original_filename: record.original_filename,
+            file_type: record.file_type,
+            folder_path: record.folder_path
+          }
+        });
+        
+        console.log('Created PubSub record:', pubsubRecord._id, 'for order ID:', record._id.toString());
+        
         uploadedFiles.push({
           url: record.url,
           original_filename: record.original_filename,

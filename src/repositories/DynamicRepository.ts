@@ -23,13 +23,21 @@ export class DynamicRepository {
     const records = Array.isArray(data) ? data : [data];
     const now = new Date();
     
-    const documents = records.map(record => ({
-      ...record,
-      createdAt: now,
-      updatedAt: now,
-      isActive: true,
-      _id: new ObjectId()
-    }));
+    const documents = records.map(record => {
+      // If record already has an _id, use it (converting to ObjectId if it's a string)
+      let _id = new ObjectId();
+      if (record._id !== undefined) {
+        _id = typeof record._id === 'string' ? new ObjectId(record._id) : record._id;
+      }
+      
+      return {
+        ...record,
+        createdAt: now,
+        updatedAt: now,
+        isActive: true,
+        _id
+      };
+    });
 
     await collection.insertMany(documents);
     return documents;

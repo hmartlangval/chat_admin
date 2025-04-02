@@ -87,6 +87,8 @@ async function saveSharedData() {
       type: 'json',
       filePath: `/path/to/data-${Date.now()}.json`,
       senderId: 'bot-123',
+      timestamp: Date.now(),
+      originalSize: 1024,
       metadata: {
         filename: 'test-data.json',
         contentType: 'application/json',

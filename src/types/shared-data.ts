@@ -48,7 +48,7 @@ export interface SharedDataModel {
  */
 export interface FileUploadResponse {
   success: boolean;
-  id: string;
+  dataId: string;
   type: string;
   filename: string;
   error?: string;

@@ -180,6 +180,9 @@ const ServiceManager: React.FC = () => {
             <div className="header">
                 <h1>Service Manager</h1>
             </div>
+            <div className='warning'>
+                <p>Warning: This page is no longer updated (on hold). You can use for starting ONLY, Use the chat window participant control popup for better control.</p>
+            </div>
 
             <div className="table-container">
                 <table>

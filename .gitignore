@@ -1,6 +1,7 @@
 /shared_data
 uploads/*
 process_data.json
+public/downloads/*
 
 # dependencies
 /node_modules

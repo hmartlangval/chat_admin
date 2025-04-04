@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AdminLayout from '@/components/layout/AdminLayout';
 
 interface Command {
     id: string;
@@ -47,7 +48,7 @@ const getCommandsFromEnv = (): Command[] => {
     ];
 };
 
-const ServiceManager: React.FC = () => {
+export default function ServiceManager() {
     const [commands, setCommands] = useState<Command[]>(getCommandsFromEnv());
     const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
     const [notification, setNotification] = useState<Notification | null>(null);
@@ -170,62 +171,65 @@ const ServiceManager: React.FC = () => {
     };
 
     return (
-        <div className="p-4 min-h-screen bg-white">
-            {notification && (
-                <div className={`notification ${notification.type}`}>
-                    {notification.message}
+        <AdminLayout>
+            <div className="h-[calc(100vh-3rem)] flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-xl font-semibold">Service Manager</h1>
+                    </div>
                 </div>
-            )}
+                
+                <div className="flex-1 bg-white rounded-lg shadow p-6">
+                    {notification && (
+                        <div className={`notification ${notification.type}`}>
+                            {notification.message}
+                        </div>
+                    )}
 
-            <div className="header">
-                <h1>Service Manager</h1>
-            </div>
-            <div className='warning'>
-                <p>Warning: This page is no longer updated (on hold). You can use for starting ONLY, Use the chat window participant control popup for better control.</p>
-            </div>
-
-            <div className="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Script</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {commands.map(command => (
-                            <tr key={command.id}>
-                                <td>{command.name}</td>
-                                <td>{getScriptName(command.command)}</td>
-                                <td>
-                                    <span className={`status ${command.status}`}>
-                                        {command.status.toUpperCase()}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div className="actions">
-                                        <button
-                                            className={`button ${command.status === 'running' ? 'disabled' : 'primary'}`}
-                                            onClick={() => handleStart(command)}
-                                            disabled={command.status === 'running' || loading[command.id]}
-                                        >
-                                            {loading[command.id] ? 'Starting...' : 'Start'}
-                                        </button>
-                                        <button
-                                            className={`button ${command.status === 'stopped' ? 'disabled' : 'danger'}`}
-                                            onClick={() => handleStop(command)}
-                                            disabled={command.status === 'stopped' || loading[command.id]}
-                                        >
-                                            {loading[command.id] ? 'Stopping...' : 'Stop'}
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                    <div className="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Script</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {commands.map(command => (
+                                    <tr key={command.id}>
+                                        <td>{command.name}</td>
+                                        <td>{getScriptName(command.command)}</td>
+                                        <td>
+                                            <span className={`status ${command.status}`}>
+                                                {command.status.toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div className="actions">
+                                                <button
+                                                    className={`button ${command.status === 'running' ? 'disabled' : 'primary'}`}
+                                                    onClick={() => handleStart(command)}
+                                                    disabled={command.status === 'running' || loading[command.id]}
+                                                >
+                                                    {loading[command.id] ? 'Starting...' : 'Start'}
+                                                </button>
+                                                <button
+                                                    className={`button ${command.status === 'stopped' ? 'disabled' : 'danger'}`}
+                                                    onClick={() => handleStop(command)}
+                                                    disabled={command.status === 'stopped' || loading[command.id]}
+                                                >
+                                                    {loading[command.id] ? 'Stopping...' : 'Stop'}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <style jsx>{`
@@ -323,8 +327,6 @@ const ServiceManager: React.FC = () => {
                     border-left: 4px solid #8e1b21;
                 }
             `}</style>
-        </div>
+        </AdminLayout>
     );
-};
-
-export default ServiceManager; 
+} 

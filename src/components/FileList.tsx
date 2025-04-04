@@ -45,7 +45,7 @@ const FileList = ({
   const totalPages = Math.ceil(items.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentItems = items.slice(startIndex, endIndex);
+  const currentItems = level === 0 ? items.slice(startIndex, endIndex) : items;
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -178,8 +178,8 @@ const FileList = ({
         })}
       </div>
 
-      {/* Pagination Controls */}
-      {items.length > 0 && (
+      {/* Pagination Controls - Only show at root level */}
+      {level === 0 && items.length > 0 && (
         <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-700">Show</span>
@@ -187,7 +187,7 @@ const FileList = ({
               value={itemsPerPage}
               onChange={(e) => {
                 setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1); // Reset to first page when changing items per page
+                setCurrentPage(1);
               }}
               className="text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             >

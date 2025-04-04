@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:all": "next dev -H 0.0.0.0",
     "build": "next build",
     "build:db": "tsc -p tsconfig.db.json",
     "start": "next start",
+    "start:p80": "next start -p 80",
     "lint": "next lint",
     "test:shared-data": "node --import tsx --no-warnings src/scripts/test-shared-data.ts",
     "test:dynamic-crud": "node --import tsx --no-warnings src/api_test/dynamic-test.ts"

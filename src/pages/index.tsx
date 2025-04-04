@@ -421,6 +421,16 @@ export default function Home() {
               <h2 className="text-md text-gray-700 mb-2 font-bold">Tools</h2>
               <div className="space-y-1.5 mb-2">
                 <a
+                  href="/files"
+                  className="block text-sm text-indigo-700 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  File Browser
+                </a>
+              </div>
+              <div className="space-y-1.5 mb-2">
+                <a
                   href="/servicemanager"
                   className="block text-sm text-indigo-700 hover:underline"
                   target="_blank"

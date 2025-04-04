@@ -57,7 +57,11 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize socket connection
   useEffect(() => {
-    const newSocket = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3000', {
+    // Use window.location.origin as fallback to support any hostname
+    const socketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || window.location.origin;
+    console.log('Connecting to socket server at:', socketUrl);
+    
+    const newSocket = io(socketUrl, {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

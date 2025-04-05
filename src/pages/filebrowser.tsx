@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import FileList from '../components/FileList';
 import AdminLayout from '@/components/layout/AdminLayout';
 
 interface FileItem {
@@ -12,7 +13,7 @@ interface FileItem {
   children?: FileItem[];
 }
 
-export default function FileBrowser() {
+const FileBrowser = () => {
   const [currentPath, setCurrentPath] = useState<string>('');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -232,8 +233,8 @@ export default function FileBrowser() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="px-6 py-4 border-b border-gray-200">
               <h1 className="text-xl font-medium text-gray-900">File Browser</h1>
@@ -276,6 +277,7 @@ export default function FileBrowser() {
               </div>
             </div>
 
+            {/* Loading indicator */}
             {loading && (
               <div className="flex justify-center items-center h-32">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -283,17 +285,18 @@ export default function FileBrowser() {
             )}
 
             {/* File list */}
-            <div className="divide-y divide-gray-200">
-              {files.map(file => renderFileItem(file))}
-              {files.length === 0 && !loading && (
-                <div className="p-6 text-center text-gray-500">
-                  No files found in this directory
-                </div>
-              )}
-            </div>
+            <FileList
+              items={files}
+              onFolderClick={handleFolderClick}
+              onFileDownload={handleDownload}
+              onFolderDownload={handleDownloadDirectory}
+              expandedFolders={expandedFolders}
+            />
           </div>
         </div>
       </div>
     </AdminLayout>
   );
-} 
+};
+
+export default FileBrowser; 

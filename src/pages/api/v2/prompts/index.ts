@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 
 const BASE_DIR = path.join(process.cwd(), 'data', 'prompts');
-const fileManager = new FileAccessManager();
+const fileManager = new FileAccessManager(BASE_DIR, '');
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { method } = req;

@@ -11,6 +11,17 @@ const mdParser = new MarkdownIt({
   linkify: true,
 });
 
+interface PromptFile {
+  name: string;
+  path: string;
+  type: 'system' | 'instruction' | 'custom';
+}
+
+interface FolderContent {
+  folder: string;
+  prompts: PromptFile[];
+}
+
 interface ConfirmModalProps {
   isOpen: boolean;
   message: string;
@@ -46,8 +57,9 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, message, onConfirm,
 };
 
 export default function PromptsManager() {
-  const [prompts, setPrompts] = useState<string[]>([]);
-  const [selectedPrompt, setSelectedPrompt] = useState<string>('');
+  const [folders, setFolders] = useState<FolderContent[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [selectedPrompt, setSelectedPrompt] = useState<PromptFile | null>(null);
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -59,31 +71,59 @@ export default function PromptsManager() {
     onConfirm: () => void;
   }>({ isOpen: false, message: '', onConfirm: () => {} });
 
-  // Load prompts list
+  // Load folders and prompts
   useEffect(() => {
-    fetchPrompts();
+    fetchFolders();
   }, []);
 
   // Load selected prompt content
   useEffect(() => {
     if (selectedPrompt) {
-      fetchPromptContent(selectedPrompt);
+      fetchPromptContent(selectedPrompt.path);
     }
   }, [selectedPrompt]);
 
-  const fetchPrompts = async () => {
+  const fetchFolders = async () => {
     try {
       const response = await fetch('/api/v2/prompts');
       const data = await response.json();
-      setPrompts(data.files);
+      
+      // Add default prompts to each folder if they don't exist
+      const foldersWithDefaults = (data.folders || []).map((folder: FolderContent) => ({
+        ...folder,
+        prompts: [
+          // Add system_prompt.md if it doesn't exist
+          ...(folder.prompts.some((p: PromptFile) => p.name === 'system_prompt.md') ? [] : [{
+            name: 'system_prompt.md',
+            path: `${folder.folder}/system_prompt.md`,
+            type: 'system' as const
+          }]),
+          // Add instructions.md if it doesn't exist
+          ...(folder.prompts.some((p: PromptFile) => p.name === 'instructions.md') ? [] : [{
+            name: 'instructions.md',
+            path: `${folder.folder}/instructions.md`,
+            type: 'instruction' as const
+          }]),
+          // Include existing prompts
+          ...folder.prompts
+        ]
+      }));
+
+      setFolders(foldersWithDefaults);
     } catch (err) {
-      setError('Failed to load prompts');
+      setError('Failed to load folders');
     }
   };
 
-  const fetchPromptContent = async (filename: string) => {
+  const fetchPromptContent = async (path: string) => {
     try {
-      const response = await fetch(`/api/v2/prompts?filename=${filename}`);
+      const tpath = path.replace("//", "/").replace('\\', '/');
+      const response = await fetch(`/api/v2/prompts?folder=${tpath.split('/')[0]}&filename=${tpath.split('/')[1]}`);
+      if(response.status === 404) {
+        setContent("");
+        setOriginalContent("");
+        return;
+      }
       const data = await response.json();
       setContent(data.content);
       setOriginalContent(data.content);
@@ -94,9 +134,14 @@ export default function PromptsManager() {
 
   const handleSave = async () => {
     try {
+      if (!selectedFolder) {
+        setError('Please select a folder first');
+        return;
+      }
+
       const filename = isCreatingNew ? 
         newPromptName.toLowerCase().replace(/[^a-z0-9_]/g, '_') + '.md' : 
-        selectedPrompt;
+        selectedPrompt?.name;
 
       await fetch('/api/v2/prompts', {
         method: 'POST',
@@ -104,6 +149,7 @@ export default function PromptsManager() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          folder: selectedFolder,
           filename,
           content,
         }),
@@ -112,8 +158,14 @@ export default function PromptsManager() {
       if (isCreatingNew) {
         setIsCreatingNew(false);
         setNewPromptName('');
-        await fetchPrompts();
-        setSelectedPrompt(filename);
+        await fetchFolders();
+        // Select the newly created prompt
+        const newPrompt = folders
+          .find(f => f.folder === selectedFolder)
+          ?.prompts.find(p => p.name === filename);
+        if (newPrompt) {
+          setSelectedPrompt(newPrompt);
+        }
       }
       setOriginalContent(content);
       setError('');
@@ -123,6 +175,11 @@ export default function PromptsManager() {
   };
 
   const handleNewPrompt = () => {
+    if (!selectedFolder) {
+      setError('Please select a folder first');
+      return;
+    }
+
     if (hasChanges) {
       setConfirmModal({
         isOpen: true,
@@ -130,31 +187,31 @@ export default function PromptsManager() {
         onConfirm: () => {
           setConfirmModal({ ...confirmModal, isOpen: false });
           setIsCreatingNew(true);
-          setSelectedPrompt('');
+          setSelectedPrompt(null);
           setContent('');
           setOriginalContent('');
         }
       });
     } else {
       setIsCreatingNew(true);
-      setSelectedPrompt('');
+      setSelectedPrompt(null);
       setContent('');
       setOriginalContent('');
     }
   };
 
-  const handlePromptSelect = (promptName: string) => {
+  const handlePromptSelect = (prompt: PromptFile) => {
     if (hasChanges) {
       setConfirmModal({
         isOpen: true,
         message: 'You have unsaved changes. Are you sure you want to switch prompts? Your changes will be lost.',
         onConfirm: () => {
           setConfirmModal({ ...confirmModal, isOpen: false });
-          setSelectedPrompt(promptName);
+          setSelectedPrompt(prompt);
         }
       });
     } else {
-      setSelectedPrompt(promptName);
+      setSelectedPrompt(prompt);
     }
   };
 
@@ -169,11 +226,11 @@ export default function PromptsManager() {
         message: 'You have unsaved changes. Are you sure you want to reload? Your changes will be lost.',
         onConfirm: () => {
           setConfirmModal({ ...confirmModal, isOpen: false });
-          console.log('Reload triggered - implementation pending');
+          fetchFolders();
         }
       });
     } else {
-      console.log('Reload triggered - implementation pending');
+      fetchFolders();
     }
   };
 
@@ -188,6 +245,7 @@ export default function PromptsManager() {
             <button
               onClick={handleNewPrompt}
               className="bg-[#FF9900] text-white px-4 py-1.5 rounded hover:bg-[#F08700] text-sm font-medium"
+              disabled={!selectedFolder}
             >
               New Prompt
             </button>
@@ -196,7 +254,7 @@ export default function PromptsManager() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
-              disabled={!hasChanges || (isCreatingNew && !newPromptName)}
+              disabled={!hasChanges || (isCreatingNew && !newPromptName) || !selectedFolder}
               className="min-w-[100px] bg-gray-700 text-white px-6 py-1.5 rounded hover:bg-gray-800 disabled:bg-gray-300 text-sm"
             >
               Save
@@ -219,16 +277,38 @@ export default function PromptsManager() {
         <div className="flex gap-3 mb-3">
           <select
             className="flex-1 px-3 py-1.5 border rounded text-sm bg-white"
-            value={selectedPrompt}
-            onChange={(e) => handlePromptSelect(e.target.value)}
-            disabled={isCreatingNew}
+            value={selectedFolder}
+            onChange={(e) => setSelectedFolder(e.target.value)}
           >
-            <option value="">Select a prompt</option>
-            {prompts.map((prompt) => (
-              <option key={prompt} value={prompt}>
-                {prompt}
+            <option value="">Select a folder</option>
+            {folders.map((folder) => (
+              <option key={folder.folder} value={folder.folder}>
+                {folder.folder}
               </option>
             ))}
+          </select>
+
+          <select
+            className="flex-1 px-3 py-1.5 border rounded text-sm bg-white"
+            value={selectedPrompt?.path || ''}
+            onChange={(e) => {
+              const prompt = folders
+                .find(f => f.folder === selectedFolder)
+                ?.prompts.find(p => p.path === e.target.value);
+              if (prompt) {
+                handlePromptSelect(prompt);
+              }
+            }}
+            disabled={!selectedFolder || isCreatingNew}
+          >
+            <option value="">Select a prompt</option>
+            {selectedFolder && folders
+              .find(f => f.folder === selectedFolder)
+              ?.prompts.map((prompt) => (
+                <option key={prompt.path} value={prompt.path}>
+                  {prompt.name} ({prompt.type})
+                </option>
+              ))}
           </select>
         </div>
 
@@ -250,20 +330,6 @@ export default function PromptsManager() {
             renderHTML={text => mdParser.render(text)}
             onChange={handleEditorChange}
             style={{ height: '100%' }}
-            config={{
-              view: {
-                menu: true,
-                md: true,
-                html: true,
-              },
-              canView: {
-                menu: true,
-                md: true,
-                html: true,
-                fullScreen: true,
-                hideMenu: true,
-              },
-            }}
           />
         </div>
 

@@ -11,12 +11,14 @@
     "start:p80": "next start -p 80",
     "lint": "next lint",
     "test:shared-data": "node --import tsx --no-warnings src/scripts/test-shared-data.ts",
-    "test:dynamic-crud": "node --import tsx --no-warnings src/api_test/dynamic-test.ts"
+    "test:dynamic-crud": "node --import tsx --no-warnings src/api_test/dynamic-test.ts",
+    "test:settings-sample": "node --import tsx --no-warnings src/data/sample-settings.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@types/file-saver": "^2.0.7",
     "axios": "^1.6.2",
+    "daisyui": "^5.0.12",
     "date-fns": "^2.30.0",
     "dotenv": "^16.4.7",
     "file-saver": "^2.0.5",

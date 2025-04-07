@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { SettingsModel, SettingType } from '@/types/settings';
+import MaintainanceMode from '@/components/Admin/MaintainanceMode';
 
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsModel[]>([]);
@@ -210,6 +211,12 @@ export default function Settings() {
     acc[setting.category].push(setting);
     return acc;
   }, {} as Record<string, SettingsModel[]>);
+
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname.includes('localhost');
+  if (!isLocalhost) {
+    return <MaintainanceMode title="Settings" />;
+  }
+
 
   return (
     <AdminLayout>

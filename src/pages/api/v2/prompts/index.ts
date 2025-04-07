@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { FileAccessManager } from '@lib/file_access_manager';
 import path from 'path';
 import fs from 'fs';
-// import { settingsCache } from '@/utils/settingsCache';
+import { settingsCache } from '@/utils/settingsCache';
 
 let fileManager: FileAccessManager | null = null;
 let currentSettings: { [x:string]: any } | null = null;
@@ -41,8 +41,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         //     return res.status(500).json({ error: 'Failed to initialize file manager' });
         // }
 
+        const isLocalhost = req.headers.host?.includes('localhost');
+
         currentSettings = {
-            prompts_base_dir: process.env.PROMPTS_DIR_PATH,
+            prompts_base_dir: isLocalhost ? process.env.PROMPTS_DIR_PATH : (await settingsCache.getSettings()).prompts_base_dir,
             static_file_base_url: process.env.STATIC_FILE_BASE_URL
         }
         console.log('currentSettings', currentSettings);

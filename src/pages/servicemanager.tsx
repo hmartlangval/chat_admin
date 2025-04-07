@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
+import MaintainanceMode from '@/components/Admin/MaintainanceMode';
 
 interface Command {
     id: string;
@@ -169,6 +170,13 @@ export default function ServiceManager() {
         const parts = command.split('|');
         return parts[parts.length - 1];
     };
+
+    const hold_till_work_is_done = true;
+    if (hold_till_work_is_done) {
+        return (
+            <MaintainanceMode title="Service Manager" />
+        );
+    }
 
     return (
         <AdminLayout>

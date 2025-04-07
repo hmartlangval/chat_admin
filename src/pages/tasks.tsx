@@ -2,6 +2,7 @@ import React from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import MaintainanceMode from '@/components/Admin/MaintainanceMode';
 
 type OrderProcessingTask = {
   _id: string;
@@ -41,6 +42,13 @@ export default function Tasks() {
 
     fetchTasks();
   }, []);
+
+  const hold_till_work_is_done = true;
+    if (hold_till_work_is_done) {
+        return (
+            <MaintainanceMode title="Tasks Manager" />
+        );
+    }
 
   return (
     <AdminLayout>

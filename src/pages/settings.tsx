@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { SettingsModel, SettingType } from '@/types/settings';
 import MaintainanceMode from '@/components/Admin/MaintainanceMode';
+import { is } from 'date-fns/locale';
 
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsModel[]>([]);
@@ -9,8 +10,11 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('general');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLocalhost, setIsLocalhost] = useState(false);
 
   useEffect(() => {
+    const isLocalhost = typeof window !== 'undefined' && window.location.hostname.includes('localhost');
+    setIsLocalhost(isLocalhost);
     fetchSettings();
   }, []);
 
@@ -212,13 +216,9 @@ export default function Settings() {
     return acc;
   }, {} as Record<string, SettingsModel[]>);
 
-  const isLocalhost = typeof window !== 'undefined' && window.location.hostname.includes('localhost');
-  if (!isLocalhost) {
-    return <MaintainanceMode title="Settings" />;
-  }
-
 
   return (
+    !isLocalhost ? <MaintainanceMode title="Settings" /> :
     <AdminLayout>
       <div className="h-[calc(100vh-3rem)] flex flex-col">
         <div className="flex items-center justify-between mb-6">

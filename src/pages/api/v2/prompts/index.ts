@@ -47,11 +47,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         //     return res.status(500).json({ error: 'Failed to initialize file manager' });
         // }
 
-        const isLocalhost = req.headers.host?.includes('localhost');
+        const isUseEnvSettings = process.env.USE_ENV_SETTINGS === 'true';
 
         currentSettings = {
-            prompts_base_dir: isLocalhost ? process.env.PROMPTS_DIR_PATH : (await settingsCache.getSettings()).prompts_base_dir,
-            static_file_base_url: process.env.STATIC_FILE_BASE_URL
+            prompts_base_dir: isUseEnvSettings ? process.env.PROMPTS_DIR_PATH : (await settingsCache.getSettings()).prompts_base_dir,
+            static_file_base_url: isUseEnvSettings ? process.env.STATIC_FILE_BASE_URL : (await settingsCache.getSettings()).static_file_base_url
         }
         console.log('currentSettings', currentSettings);
 

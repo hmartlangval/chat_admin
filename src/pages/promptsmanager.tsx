@@ -23,6 +23,8 @@ interface PromptFile {
 interface Action {
   name: string;
   prompts: PromptFile[];
+  activeSystemPrompt?: string;
+  activeInstructionPrompt?: string;
 }
 
 interface Folder {
@@ -115,12 +117,44 @@ const PromptsManager: React.FC = () => {
     setIsCreatingAction(false);
   };
 
-  const handleActionSelect = (action: string) => {
+  const handleActionSelect = async (action: string) => {
     setSelectedAction(action);
     setSelectedPrompt(null);
     setContent('');
     setOriginalContent('');
     setIsCreatingNew(false);
+
+    // Fetch active prompts for the selected action
+    try {
+      const response = await fetch(`/api/v2/prompts/active?folder=${selectedFolder}&action=${action}`);
+      if (!response.ok) throw new Error('Failed to fetch active prompts');
+      const data = await response.json();
+      
+      // Update local state with active prompts
+      const updatedFolders = folders.map(folder => {
+        if (folder.folder === selectedFolder) {
+          return {
+            ...folder,
+            actions: folder.actions.map(a => {
+              if (a.name === action) {
+                return {
+                  ...a,
+                  activeSystemPrompt: data.activeSystemPrompt,
+                  activeInstructionPrompt: data.activeInstructionPrompt
+                };
+              }
+              return a;
+            })
+          };
+        }
+        return folder;
+      });
+
+      setFolders(updatedFolders);
+    } catch (err) {
+      console.error('Error fetching active prompts:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch active prompts');
+    }
   };
 
   const handlePromptSelect = async (prompt: PromptFile) => {
@@ -278,6 +312,53 @@ const PromptsManager: React.FC = () => {
     setConfirmModal(false);
   };
 
+  const handleToggleActivePrompt = async (prompt: PromptFile, type: 'system' | 'instruction') => {
+    if (!selectedFolder || !selectedAction) return;
+
+    try {
+      const response = await fetch('/api/v2/prompts/active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder: selectedFolder,
+          action: selectedAction,
+          promptPath: prompt.path,
+          type
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to update active prompt');
+      
+      // Update local state
+      const updatedFolders = folders.map(folder => {
+        if (folder.folder === selectedFolder) {
+          return {
+            ...folder,
+            actions: folder.actions.map(action => {
+              if (action.name === selectedAction) {
+                return {
+                  ...action,
+                  activeSystemPrompt: type === 'system' ? prompt.path : action.activeSystemPrompt,
+                  activeInstructionPrompt: type === 'instruction' ? prompt.path : action.activeInstructionPrompt
+                };
+              }
+              return action;
+            })
+          };
+        }
+        return folder;
+      });
+
+      setFolders(updatedFolders);
+      setNotification({ message: 'Active prompt updated', type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update active prompt');
+      setNotification({ message: 'Failed to update active prompt', type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
   const currentFolder = folders.find(f => f.folder === selectedFolder);
   const currentAction = currentFolder?.actions.find(a => a.name === selectedAction);
   const currentPrompts = currentAction?.prompts || [];
@@ -355,7 +436,8 @@ const PromptsManager: React.FC = () => {
                         <button
                           className="px-2.5 py-1 text-xs text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                           onClick={handleNewAction}
-                          disabled={isCreatingAction}
+                          // disabled={isCreatingAction}
+                          disabled={true}
                         >
                           Add Action
                         </button>
@@ -412,19 +494,66 @@ const PromptsManager: React.FC = () => {
                     ) : null}
 
                     <div className="space-y-0.5">
-                      {currentPrompts.map((prompt) => (
-                        <div
-                          key={`prompt-${prompt.path}`}
-                          className={`px-2.5 py-1 text-xs rounded cursor-pointer ${
-                            selectedPrompt?.path === prompt.path
-                              ? 'bg-gray-100 border border-gray-200'
-                              : 'hover:bg-gray-50 border border-transparent'
-                          }`}
-                          onClick={() => handlePromptSelect(prompt)}
-                        >
-                          {prompt.name}
-                        </div>
-                      ))}
+                      {currentPrompts.map((prompt) => {
+                        const isSystem = currentAction?.activeSystemPrompt === prompt.path;
+                        const isInstruction = currentAction?.activeInstructionPrompt === prompt.path;
+                        
+                        return (
+                          <div
+                            key={`prompt-${prompt.path}`}
+                            className={`px-2.5 py-1 text-xs rounded cursor-pointer flex items-center justify-between group ${
+                              selectedPrompt?.path === prompt.path
+                                ? 'bg-gray-100 border border-gray-200'
+                                : 'hover:bg-gray-50 border border-transparent'
+                            }`}
+                            onClick={() => handlePromptSelect(prompt)}
+                          >
+                            <span>{prompt.name}</span>
+                            <div className="flex gap-1">
+                              <button
+                                className={`p-1 rounded-full ${
+                                  isSystem
+                                    ? 'bg-green-100 text-green-600 cursor-default'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!isSystem) {
+                                    handleToggleActivePrompt(prompt, 'system');
+                                  }
+                                }}
+                                disabled={isSystem}
+                                title="Set as System Prompt"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                                </svg>
+                                <span className="sr-only">Set as System Prompt</span>
+                              </button>
+                              <button
+                                className={`p-1 rounded-full ${
+                                  isInstruction
+                                    ? 'bg-green-100 text-green-600 cursor-default'
+                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!isInstruction) {
+                                    handleToggleActivePrompt(prompt, 'instruction');
+                                  }
+                                }}
+                                disabled={isInstruction}
+                                title="Set as Instruction Prompt"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span className="sr-only">Set as Instruction Prompt</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </>
                 )}

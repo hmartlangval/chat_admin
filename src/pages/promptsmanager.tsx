@@ -112,7 +112,7 @@ const PromptsManager: React.FC = () => {
     try {
       const [foldersResponse, activeResponse] = await Promise.all([
         fetch('/api/v2/prompts'),
-        fetch(`/api/v2/prompts/active?folder=${folder}&action=${action}`)
+        fetch(`/api/v2/prompts/config?folder=${folder}&action=${action}`)
       ]);
 
       if (!foldersResponse.ok) throw new Error('Failed to fetch folders');
@@ -154,6 +154,22 @@ const PromptsManager: React.FC = () => {
   }, []);
 
   const handleFolderSelect = (folder: string) => {
+    if (content !== originalContent) {
+      setPendingAction(() => () => {
+        setSelectedFolder(folder);
+        setSelectedPrompt(null);
+        setContent('');
+        setOriginalContent('');
+        setIsCreatingNew(false);
+        
+        const firstAction = folders.find(f => f.folder === folder)?.actions[0]?.name || 'default';
+        setSelectedAction(firstAction);
+        fetchFolderState(folder, firstAction);
+      });
+      setConfirmModal(true);
+      return;
+    }
+
     setSelectedFolder(folder);
     setSelectedPrompt(null);
     setContent('');
@@ -166,6 +182,21 @@ const PromptsManager: React.FC = () => {
   };
 
   const handleActionSelect = (action: string) => {
+    if (content !== originalContent) {
+      setPendingAction(() => () => {
+        if (selectedFolder) {
+          setSelectedAction(action);
+          setSelectedPrompt(null);
+          setContent('');
+          setOriginalContent('');
+          setIsCreatingNew(false);
+          fetchFolderState(selectedFolder, action);
+        }
+      });
+      setConfirmModal(true);
+      return;
+    }
+
     if (selectedFolder) {
       setSelectedAction(action);
       setSelectedPrompt(null);
@@ -177,12 +208,25 @@ const PromptsManager: React.FC = () => {
   };
 
   const handlePromptSelect = async (prompt: PromptFile) => {
+    // If there are unsaved changes, set up the pending action and show confirm
     if (content !== originalContent) {
-      setPendingAction(() => () => handlePromptSelect(prompt));
+      setPendingAction(() => async () => {
+        try {
+          const response = await fetch(`/api/v2/prompts?folder=${selectedFolder}&filename=${prompt.name}&action=${selectedAction}`);
+          if (!response.ok) throw new Error('Failed to fetch prompt content');
+          const data = await response.json();
+          setSelectedPrompt(prompt);
+          setContent(data.content);
+          setOriginalContent(data.content);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch prompt content');
+        }
+      });
       setConfirmModal(true);
       return;
     }
 
+    // If no unsaved changes, proceed directly
     try {
       const response = await fetch(`/api/v2/prompts?folder=${selectedFolder}&filename=${prompt.name}&action=${selectedAction}`);
       if (!response.ok) throw new Error('Failed to fetch prompt content');
@@ -333,48 +377,31 @@ const PromptsManager: React.FC = () => {
     setConfirmModal(false);
   };
 
-  const handleToggleActivePrompt = async (prompt: PromptFile, type: 'system' | 'instruction') => {
+  const handleToggleActivePrompt = async (promptPath: string, type: 'system' | 'instruction') => {
     if (!selectedFolder || !selectedAction) return;
 
     try {
-      const response = await fetch('/api/v2/prompts/active', {
+      const response = await fetch('/api/v2/prompts/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           folder: selectedFolder,
           action: selectedAction,
-          promptPath: prompt.path,
-          type
-        })
+          updates: {
+            [type === 'system' ? 'activeSystemPrompt' : 'activeInstructionPrompt']: promptPath
+          }
+        }),
       });
 
-      if (!response.ok) throw new Error('Failed to update active prompt');
-      
-      // Update local state
-      const updatedFolders = folders.map(folder => {
-        if (folder.folder === selectedFolder) {
-          return {
-            ...folder,
-            actions: folder.actions.map(action => {
-              if (action.name === selectedAction) {
-                return {
-                  ...action,
-                  activeSystemPrompt: type === 'system' ? prompt.path : action.activeSystemPrompt,
-                  activeInstructionPrompt: type === 'instruction' ? prompt.path : action.activeInstructionPrompt
-                };
-              }
-              return action;
-            })
-          };
-        }
-        return folder;
-      });
+      if (!response.ok) {
+        throw new Error('Failed to update active prompt');
+      }
 
-      setFolders(updatedFolders);
-      toast.success('Active prompt updated');
-    } catch (err) {
-      console.error('Error updating active prompt:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to update active prompt');
+      await fetchFolderState(selectedFolder, selectedAction);
+    } catch (error) {
+      console.error('Error updating active prompt:', error);
     }
   };
 
@@ -530,7 +557,7 @@ const PromptsManager: React.FC = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!isSystem) {
-                                    handleToggleActivePrompt(prompt, 'system');
+                                    handleToggleActivePrompt(prompt.path, 'system');
                                   }
                                 }}
                                 disabled={isSystem}
@@ -550,7 +577,7 @@ const PromptsManager: React.FC = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!isInstruction) {
-                                    handleToggleActivePrompt(prompt, 'instruction');
+                                    handleToggleActivePrompt(prompt.path, 'instruction');
                                   }
                                 }}
                                 disabled={isInstruction}
@@ -610,28 +637,12 @@ const PromptsManager: React.FC = () => {
           </div>
         </div>
 
-        {confirmModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Unsaved Changes</h3>
-              <p className="mb-4 text-sm text-gray-600">You have unsaved changes. Do you want to continue?</p>
-              <div className="flex justify-end gap-2">
-                <button
-                  className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                  onClick={handleCancel}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-3 py-1.5 text-sm text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                  onClick={handleConfirm}
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmModal
+          isOpen={confirmModal}
+          message="You have unsaved changes. Do you want to continue?"
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
       </div>
     </AdminLayout>
   );

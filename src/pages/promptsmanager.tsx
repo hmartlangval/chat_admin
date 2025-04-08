@@ -27,6 +27,7 @@ interface Action {
   activeSystemPrompt?: string;
   activeInstructionPrompt?: string;
   requires_browser?: boolean;
+  prompt_scripts?: string[];
 }
 
 interface Folder {
@@ -83,6 +84,7 @@ const PromptsManager: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [confirmModal, setConfirmModal] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [scripts, setScripts] = useState<string[]>([]);
 
   const md = new MarkdownIt();
 
@@ -134,7 +136,8 @@ const PromptsManager: React.FC = () => {
                   ...a,
                   activeSystemPrompt: activeData.activeSystemPrompt,
                   activeInstructionPrompt: activeData.activeInstructionPrompt,
-                  requires_browser: activeData.requires_browser
+                  requires_browser: activeData.requires_browser,
+                  prompt_scripts: activeData.prompt_scripts
                 };
               }
               return a;
@@ -151,8 +154,21 @@ const PromptsManager: React.FC = () => {
     }
   };
 
+  const fetchScripts = async () => {
+    try {
+      const response = await fetch('/api/v2/prompts/scripts');
+      if (!response.ok) throw new Error('Failed to fetch scripts');
+      const data = await response.json();
+      setScripts(data.scripts);
+    } catch (error) {
+      console.error('Error fetching scripts:', error);
+      toast.error('Failed to fetch scripts');
+    }
+  };
+
   useEffect(() => {
     fetchFolders();
+    fetchScripts();
   }, []);
 
   const handleFolderSelect = (folder: string) => {
@@ -436,6 +452,10 @@ const PromptsManager: React.FC = () => {
     }
   };
 
+  const handleScriptSelect = async (scriptName: string) => {
+    window.open(`/scripteditor?scriptname=${scriptName}`, '_blank');
+  };
+
   const currentFolder = folders.find(f => f.folder === selectedFolder);
   const currentAction = currentFolder?.actions.find(a => a.name === selectedAction);
   const currentPrompts = currentAction?.prompts || [];
@@ -631,6 +651,38 @@ const PromptsManager: React.FC = () => {
                         checked={currentAction?.requires_browser || false}
                         onChange={(e) => handleToggleRequiresBrowser(e.target.checked)}
                         className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                      />
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="text-xs font-medium text-gray-600 block mb-1">Scripts</label>
+                      <div className="border border-gray-200 rounded overflow-hidden">
+                        <div className="max-h-[120px] overflow-y-auto">
+                          {scripts.map((script) => (
+                            <div
+                              key={script}
+                              className={`px-2.5 py-1.5 text-xs cursor-pointer hover:bg-gray-50 bg-gray-100 font-medium`}
+                              onClick={() => handleScriptSelect(script)}
+                            >
+                              {script}
+                            </div>
+                          ))}
+                          {scripts.length === 0 && (
+                            <div className="px-2.5 py-1.5 text-xs text-gray-500">
+                              No scripts available
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="text-xs font-medium text-gray-600 block mb-1">Active Scripts</label>
+                      <textarea
+                        readOnly
+                        value={currentAction?.prompt_scripts?.join('\n') || ''}
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-gray-50 resize-none"
+                        rows={3}
                       />
                     </div>
                   </>

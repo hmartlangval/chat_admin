@@ -53,7 +53,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             prompts_base_dir: isUseEnvSettings ? process.env.PROMPTS_DIR_PATH : (await settingsCache.getSettings()).prompts_base_dir,
             static_file_base_url: isUseEnvSettings ? process.env.STATIC_FILE_BASE_URL : (await settingsCache.getSettings()).static_file_base_url
         }
-        console.log('currentSettings', currentSettings);
 
         fileManager = new FileAccessManager(currentSettings.prompts_base_dir, currentSettings.static_file_base_url);
 
@@ -189,7 +188,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                         const actionDir = action || 'default';
                         const filePath = `${settings.prompts_base_dir}/${folder}/${actionDir}/${filename}`;
-                        console.log('filePath... writing to a file', settings.prompts_base_dir, filePath, content);
                         await fileAccessManager.writeFile(filePath, content);
                         res.status(200).json({ success: true });
                     }

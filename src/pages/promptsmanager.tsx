@@ -85,75 +85,94 @@ const PromptsManager: React.FC = () => {
 
   const md = new MarkdownIt();
 
-  useEffect(() => {
-    fetchFolders();
-  }, []);
-
   const fetchFolders = async () => {
     try {
       const response = await fetch('/api/v2/prompts');
       if (!response.ok) throw new Error('Failed to fetch folders');
       const data = await response.json();
-      console.log('Fetched data:', data); // Debug log
       setFolders(data.folders);
       
       // If we have folders but no selected folder, select the first one
       if (data.folders.length > 0 && !selectedFolder) {
-        handleFolderSelect(data.folders[0].folder);
+        const firstFolder = data.folders[0].folder;
+        const firstAction = data.folders[0].actions[0]?.name || 'default';
+        setSelectedFolder(firstFolder);
+        setSelectedAction(firstAction);
+        // Fetch active prompts for initial folder/action
+        await fetchFolderState(firstFolder, firstAction);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch folders');
+      console.error('Error fetching folders:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch folders');
     }
   };
 
-  const handleFolderSelect = (folder: string) => {
-    setSelectedFolder(folder);
-    const firstAction = folders.find(f => f.folder === folder)?.actions[0]?.name || 'default';
-    setSelectedAction(firstAction);
-    setSelectedPrompt(null);
-    setContent('');
-    setOriginalContent('');
-    setIsCreatingNew(false);
-    setIsCreatingAction(false);
-  };
-
-  const handleActionSelect = async (action: string) => {
-    setSelectedAction(action);
-    setSelectedPrompt(null);
-    setContent('');
-    setOriginalContent('');
-    setIsCreatingNew(false);
-
-    // Fetch active prompts for the selected action
+  // Single function to fetch folder state (folders list + active prompts)
+  const fetchFolderState = async (folder: string, action: string) => {
     try {
-      const response = await fetch(`/api/v2/prompts/active?folder=${selectedFolder}&action=${action}`);
-      if (!response.ok) throw new Error('Failed to fetch active prompts');
-      const data = await response.json();
-      
-      // Update local state with active prompts
-      const updatedFolders = folders.map(folder => {
-        if (folder.folder === selectedFolder) {
+      const [foldersResponse, activeResponse] = await Promise.all([
+        fetch('/api/v2/prompts'),
+        fetch(`/api/v2/prompts/active?folder=${folder}&action=${action}`)
+      ]);
+
+      if (!foldersResponse.ok) throw new Error('Failed to fetch folders');
+      if (!activeResponse.ok) throw new Error('Failed to fetch active prompts');
+
+      const [foldersData, activeData] = await Promise.all([
+        foldersResponse.json(),
+        activeResponse.json()
+      ]);
+
+      const updatedFolders = foldersData.folders.map((f: Folder) => {
+        if (f.folder === folder) {
           return {
-            ...folder,
-            actions: folder.actions.map(a => {
+            ...f,
+            actions: f.actions.map(a => {
               if (a.name === action) {
                 return {
                   ...a,
-                  activeSystemPrompt: data.activeSystemPrompt,
-                  activeInstructionPrompt: data.activeInstructionPrompt
+                  activeSystemPrompt: activeData.activeSystemPrompt,
+                  activeInstructionPrompt: activeData.activeInstructionPrompt
                 };
               }
               return a;
             })
           };
         }
-        return folder;
+        return f;
       });
 
       setFolders(updatedFolders);
     } catch (err) {
-      console.error('Error fetching active prompts:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch active prompts');
+      console.error('Error fetching folder state:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch folder state');
+    }
+  };
+
+  useEffect(() => {
+    fetchFolders();
+  }, []);
+
+  const handleFolderSelect = (folder: string) => {
+    setSelectedFolder(folder);
+    setSelectedPrompt(null);
+    setContent('');
+    setOriginalContent('');
+    setIsCreatingNew(false);
+    
+    const firstAction = folders.find(f => f.folder === folder)?.actions[0]?.name || 'default';
+    setSelectedAction(firstAction);
+    fetchFolderState(folder, firstAction);
+  };
+
+  const handleActionSelect = (action: string) => {
+    if (selectedFolder) {
+      setSelectedAction(action);
+      setSelectedPrompt(null);
+      setContent('');
+      setOriginalContent('');
+      setIsCreatingNew(false);
+      fetchFolderState(selectedFolder, action);
     }
   };
 
@@ -240,7 +259,7 @@ const PromptsManager: React.FC = () => {
       });
 
       if (!response.ok) throw new Error('Failed to create prompt');
-      await fetchFolders();
+      await fetchFolderState(selectedFolder, selectedAction);
       setIsCreatingNew(false);
       setNewPromptName('');
       toast.success('Prompt created successfully');
@@ -259,7 +278,6 @@ const PromptsManager: React.FC = () => {
     const sanitizedName = newActionName.replace(/[^a-zA-Z0-9-_]/g, '_').toLowerCase();
 
     try {
-      // Create the action directory by creating a dummy file
       const response = await fetch('/api/v2/prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -272,10 +290,9 @@ const PromptsManager: React.FC = () => {
       });
 
       if (!response.ok) throw new Error('Failed to create action');
-      await fetchFolders();
+      await fetchFolderState(selectedFolder, sanitizedName);
       setIsCreatingAction(false);
       setNewActionName('');
-      setSelectedAction(sanitizedName);
       toast.success('Action created successfully');
     } catch (err) {
       console.error('Error creating action:', err);
@@ -292,7 +309,7 @@ const PromptsManager: React.FC = () => {
       });
 
       if (!response.ok) throw new Error('Failed to delete prompt');
-      await fetchFolders();
+      await fetchFolderState(selectedFolder, selectedAction);
       setSelectedPrompt(null);
       setContent('');
       setOriginalContent('');

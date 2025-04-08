@@ -85,6 +85,7 @@ const PromptsManager: React.FC = () => {
   const [confirmModal, setConfirmModal] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [scripts, setScripts] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<'prompts' | 'scripts'>('prompts');
 
   const md = new MarkdownIt();
 
@@ -94,7 +95,7 @@ const PromptsManager: React.FC = () => {
       if (!response.ok) throw new Error('Failed to fetch folders');
       const data = await response.json();
       setFolders(data.folders);
-      
+
       // If we have folders but no selected folder, select the first one
       if (data.folders.length > 0 && !selectedFolder) {
         const firstFolder = data.folders[0].folder;
@@ -179,7 +180,7 @@ const PromptsManager: React.FC = () => {
         setContent('');
         setOriginalContent('');
         setIsCreatingNew(false);
-        
+
         const firstAction = folders.find(f => f.folder === folder)?.actions[0]?.name || 'default';
         setSelectedAction(firstAction);
         fetchFolderState(folder, firstAction);
@@ -193,7 +194,7 @@ const PromptsManager: React.FC = () => {
     setContent('');
     setOriginalContent('');
     setIsCreatingNew(false);
-    
+
     const firstAction = folders.find(f => f.folder === folder)?.actions[0]?.name || 'default';
     setSelectedAction(firstAction);
     fetchFolderState(folder, firstAction);
@@ -427,28 +428,28 @@ const PromptsManager: React.FC = () => {
     if (!selectedFolder || !selectedAction) return;
 
     try {
-        const response = await fetch('/api/v2/prompts/config', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                folder: selectedFolder,
-                action: selectedAction,
-                updates: {
-                    requires_browser: value
-                }
-            }),
-        });
+      const response = await fetch('/api/v2/prompts/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          folder: selectedFolder,
+          action: selectedAction,
+          updates: {
+            requires_browser: value
+          }
+        }),
+      });
 
-        if (!response.ok) {
-            throw new Error('Failed to update requires_browser setting');
-        }
+      if (!response.ok) {
+        throw new Error('Failed to update requires_browser setting');
+      }
 
-        await fetchFolderState(selectedFolder, selectedAction);
+      await fetchFolderState(selectedFolder, selectedAction);
     } catch (error) {
-        console.error('Error updating requires_browser:', error);
-        toast.error('Failed to update requires_browser setting');
+      console.error('Error updating requires_browser:', error);
+      toast.error('Failed to update requires_browser setting');
     }
   };
 
@@ -475,44 +476,44 @@ const PromptsManager: React.FC = () => {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="space-y-6">
-                <div>
-                  <div className="relative">
-                    <select
-                      id="bot-select"
-                      className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-900"
-                      value={selectedFolder}
-                      onChange={(e) => handleFolderSelect(e.target.value)}
-                    >
-                      <option value="" disabled className="text-gray-500">Select Bot</option>
-                      {folders.map((folder) => (
-                        <option key={`folder-${folder.folder}`} value={folder.folder} className="text-gray-900">
-                          {folder.folder}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
+                {/* Tab Controls */}
+                <div className="flex border-b border-gray-200">
+                  <button
+                    className={`px-4 py-2 text-sm font-medium ${activeTab === 'prompts'
+                      ? 'text-gray-900 border-b-2 border-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    onClick={() => setActiveTab('prompts')}
+                  >
+                    Prompts
+                  </button>
+                  <button
+                    className={`px-4 py-2 text-sm font-medium ${activeTab === 'scripts'
+                      ? 'text-gray-900 border-b-2 border-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    onClick={() => setActiveTab('scripts')}
+                  >
+                    Scripts
+                  </button>
                 </div>
 
-                {selectedFolder && (
+                {/* Tab Content */}
+                {activeTab === 'prompts' ? (
                   <>
                     <div>
                       <div className="flex gap-3">
                         <div className="relative flex-1">
                           <select
-                            id="action-select"
-                            className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-900"
-                            value={selectedAction}
-                            onChange={(e) => handleActionSelect(e.target.value)}
+                            id="bot-select"
+                            className="w-full px-3 py-1.5 text-base border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-900"
+                            value={selectedFolder}
+                            onChange={(e) => handleFolderSelect(e.target.value)}
                           >
-                            <option value="" disabled className="text-gray-500">Select Action</option>
-                            {currentFolder?.actions.map((action) => (
-                              <option key={`action-${action.name}`} value={action.name} className="text-gray-900">
-                                {action.name}
+                            <option value="" disabled className="text-gray-500">Select Bot</option>
+                            {folders.map((folder) => (
+                              <option key={`folder-${folder.folder}`} value={folder.folder} className="text-gray-900">
+                                {folder.folder}
                               </option>
                             ))}
                           </select>
@@ -522,146 +523,191 @@ const PromptsManager: React.FC = () => {
                             </svg>
                           </div>
                         </div>
-                        <button
-                          className="px-2.5 py-1 text-xs text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                          onClick={handleNewAction}
-                          disabled={true}
-                        >
-                          Add Action
-                        </button>
                       </div>
                     </div>
 
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-medium text-gray-600">Prompts</label>
-                        <button
-                          className="px-2.5 py-1 text-xs text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                          onClick={handleNewPrompt}
-                          disabled={isCreatingNew}
-                        >
-                          New Prompt
-                        </button>
-                      </div>
-                    </div>                    
-
-                    {isCreatingNew ? (
-                      <div key="create-prompt" className="mb-3">
-                        <input
-                          type="text"
-                          className="w-full px-2.5 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent mb-2"
-                          placeholder="Enter prompt name"
-                          value={newPromptName}
-                          onChange={(e) => setNewPromptName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleCreatePrompt();
-                            if (e.key === 'Escape') {
-                              setIsCreatingNew(false);
-                              setNewPromptName('');
-                            }
-                          }}
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            className="px-2.5 py-1 text-xs text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500"
-                            onClick={handleCreatePrompt}
-                          >
-                            Create
-                          </button>
-                          <button
-                            className="px-2.5 py-1 text-xs text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300"
-                            onClick={() => {
-                              setIsCreatingNew(false);
-                              setNewPromptName('');
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="space-y-0.5">
-                      {currentPrompts.map((prompt) => {
-                        const isSystem = currentAction?.activeSystemPrompt === prompt.path;
-                        const isInstruction = currentAction?.activeInstructionPrompt === prompt.path;
-                        
-                        return (
-                          <div
-                            key={`prompt-${prompt.path}`}
-                            className={`px-2.5 py-1 text-xs rounded cursor-pointer flex items-center justify-between group ${
-                              selectedPrompt?.path === prompt.path
-                                ? 'bg-gray-100 border border-gray-200'
-                                : 'hover:bg-gray-50 border border-transparent'
-                            }`}
-                            onClick={() => handlePromptSelect(prompt)}
-                          >
-                            <span className={`${(isSystem || isInstruction) ? 'font-bold' : ''}`}>{prompt.name}</span>
-                            <div className="flex gap-1">
-                              <button
-                                className={`p-1 rounded-full ${
-                                  isSystem
-                                    ? 'bg-green-100 text-green-600 cursor-default'
-                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isSystem) {
-                                    handleToggleActivePrompt(prompt.path, 'system');
-                                  }
-                                }}
-                                disabled={isSystem}
-                                title="Set as System Prompt"
+                    {selectedFolder && (
+                      <>
+                        <div>
+                          <div className="flex gap-3">
+                            <div className="relative flex-1">
+                              <select
+                                id="action-select"
+                                className="w-full px-3 py-1.5 text-base border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-900"
+                                value={selectedAction}
+                                onChange={(e) => handleActionSelect(e.target.value)}
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                                <option value="" disabled className="text-gray-500">Select Action</option>
+                                {currentFolder?.actions.map((action) => (
+                                  <option key={`action-${action.name}`} value={action.name} className="text-gray-900">
+                                    {action.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                                 </svg>
-                                <span className="sr-only">Set as System Prompt</span>
+                              </div>
+                            </div>
+                            <button
+                              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                              onClick={handleNewAction}
+                              disabled={true}
+                              title="Add Action"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-4">
+                          <label className="text-base font-medium text-gray-600">Requires Browser</label>
+                          <input
+                            type="checkbox"
+                            checked={currentAction?.requires_browser || false}
+                            onChange={(e) => handleToggleRequiresBrowser(e.target.checked)}
+                            className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-base font-medium text-gray-600">Prompts</label>
+                            <button
+                              className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                              onClick={handleNewPrompt}
+                              disabled={isCreatingNew}
+                              title="New Prompt"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+
+                        {isCreatingNew ? (
+                          <div key="create-prompt" className="mb-3">
+                            <input
+                              type="text"
+                              className="w-full px-2.5 py-1 text-base border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent mb-2"
+                              placeholder="Enter prompt name"
+                              value={newPromptName}
+                              onChange={(e) => setNewPromptName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCreatePrompt();
+                                if (e.key === 'Escape') {
+                                  setIsCreatingNew(false);
+                                  setNewPromptName('');
+                                }
+                              }}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                className="px-2.5 py-1 text-base text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                                onClick={handleCreatePrompt}
+                              >
+                                Create
                               </button>
                               <button
-                                className={`p-1 rounded-full ${
-                                  isInstruction
-                                    ? 'bg-green-100 text-green-600 cursor-default'
-                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isInstruction) {
-                                    handleToggleActivePrompt(prompt.path, 'instruction');
-                                  }
+                                className="px-2.5 py-1 text-base text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                                onClick={() => {
+                                  setIsCreatingNew(false);
+                                  setNewPromptName('');
                                 }}
-                                disabled={isInstruction}
-                                title="Set as Instruction Prompt"
                               >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <span className="sr-only">Set as Instruction Prompt</span>
+                                Cancel
                               </button>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                        ) : null}
 
-                    <div className="flex items-center gap-2 mb-4">
-                      <label className="text-xs font-medium text-gray-600">Requires Browser</label>
-                      <input
-                        type="checkbox"
-                        checked={currentAction?.requires_browser || false}
-                        onChange={(e) => handleToggleRequiresBrowser(e.target.checked)}
-                        className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                        <div className="space-y-0.5">
+                          {currentPrompts.map((prompt) => {
+                            const isSystem = currentAction?.activeSystemPrompt === prompt.path;
+                            const isInstruction = currentAction?.activeInstructionPrompt === prompt.path;
+
+                            return (
+                              <div
+                                key={`prompt-${prompt.path}`}
+                                className={`px-2.5 py-1.5 text-base rounded cursor-pointer flex items-center justify-between group ${selectedPrompt?.path === prompt.path
+                                  ? 'bg-gray-100 border border-gray-200'
+                                  : 'hover:bg-gray-50 border border-transparent'
+                                  }`}
+                                onClick={() => handlePromptSelect(prompt)}
+                              >
+                                <span className={`${(isSystem || isInstruction) ? 'font-bold' : ''}`}>{prompt.name}</span>
+                                <div className="flex gap-1">
+                                  <button
+                                    className={`p-1 rounded-full ${isSystem
+                                      ? 'bg-green-100 text-green-600 cursor-default'
+                                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                                      }`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isSystem) {
+                                        handleToggleActivePrompt(prompt.path, 'system');
+                                      }
+                                    }}
+                                    disabled={isSystem}
+                                    title="Set as System Prompt"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                                    </svg>
+                                    <span className="sr-only">Set as System Prompt</span>
+                                  </button>
+                                  <button
+                                    className={`p-1 rounded-full ${isInstruction
+                                      ? 'bg-green-100 text-green-600 cursor-default'
+                                      : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                                      }`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isInstruction) {
+                                        handleToggleActivePrompt(prompt.path, 'instruction');
+                                      }
+                                    }}
+                                    disabled={isInstruction}
+                                    title="Set as Instruction Prompt"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span className="sr-only">Set as Instruction Prompt</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    
+                    <div className="mb-4">
+                      <label className="font-medium text-gray-600 block mb-1">Active Scripts</label>
+                      <textarea
+                        readOnly
+                        value={currentAction?.prompt_scripts?.join('\n') || ''}
+                        className="w-full px-2.5 py-1.5 text-base border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-gray-50 resize-none"
+                        rows={3}
                       />
                     </div>
-
                     <div className="mb-4">
-                      <label className="text-xs font-medium text-gray-600 block mb-1">Scripts</label>
+                      <label className="font-medium text-gray-600 block mb-1">Scripts</label>
                       <div className="border border-gray-200 rounded overflow-hidden">
-                        <div className="max-h-[120px] overflow-y-auto">
+                        <div className="h-[250px] overflow-y-auto">
                           {scripts.map((script) => (
                             <div
                               key={script}
-                              className={`px-2.5 py-1.5 text-xs cursor-pointer hover:bg-gray-50 bg-gray-100 font-medium`}
+                              className={`px-2.5 py-1.5 text-base cursor-pointer hover:bg-gray-200`}
                               onClick={() => handleScriptSelect(script)}
                             >
                               {script}
@@ -674,16 +720,6 @@ const PromptsManager: React.FC = () => {
                           )}
                         </div>
                       </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="text-xs font-medium text-gray-600 block mb-1">Active Scripts</label>
-                      <textarea
-                        readOnly
-                        value={currentAction?.prompt_scripts?.join('\n') || ''}
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-gray-50 resize-none"
-                        rows={3}
-                      />
                     </div>
                   </>
                 )}

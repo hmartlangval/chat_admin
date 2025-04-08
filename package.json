@@ -11,27 +11,32 @@
     "start:p80": "next start -p 80",
     "lint": "next lint",
     "test:shared-data": "node --import tsx --no-warnings src/scripts/test-shared-data.ts",
-    "test:dynamic-crud": "node --import tsx --no-warnings src/api_test/dynamic-test.ts"
+    "test:dynamic-crud": "node --import tsx --no-warnings src/api_test/dynamic-test.ts",
+    "test:settings-sample": "node --import tsx --no-warnings src/data/sample-settings.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@types/file-saver": "^2.0.7",
     "axios": "^1.6.2",
+    "daisyui": "^5.0.12",
     "date-fns": "^2.30.0",
     "dotenv": "^16.4.7",
     "file-saver": "^2.0.5",
     "formidable": "^3.5.2",
     "jszip": "^3.10.1",
+    "markdown-it": "^14.1.0",
     "mongodb": "^6.15.0",
     "next": "14.0.3",
     "react": "^18",
     "react-dom": "^18",
+    "react-markdown-editor-lite": "^1.3.4",
     "react-use-websocket": "^4.5.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@types/formidable": "^3.4.5",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.17.27",
     "@types/react": "^18",
     "@types/react-dom": "^18",

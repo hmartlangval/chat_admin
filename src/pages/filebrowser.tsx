@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import FileList from '../components/FileList';
+import AdminLayout from '@/components/layout/AdminLayout';
 
 interface FileItem {
   name: string;
@@ -231,68 +232,70 @@ const FileBrowser = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-xl font-medium text-gray-900">File Browser</h1>
-          </div>
-          
-          {/* Breadcrumb */}
-          <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center text-sm">
-              <button 
-                onClick={() => {
-                  setCurrentPath('');
-                  setExpandedFolders(new Set());
-                  const init = async () => {
-                    const data = await fetchDirectory();
-                    setFiles(data);
-                  };
-                  init();
-                }}
-                className="text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Root
-              </button>
-              {currentPath && (
-                <>
-                  <span className="text-gray-400 mx-2">{'>'}</span>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-gray-600">{currentPath}</span>
-                    <button
-                      onClick={() => handleDownloadDirectory(currentPath)}
-                      className="text-gray-500 hover:text-purple-600 p-1"
-                      title="Download current folder as ZIP"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                    </button>
-                  </div>
-                </>
-              )}
+    <AdminLayout>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h1 className="text-xl font-medium text-gray-900">File Browser</h1>
             </div>
-          </div>
-
-          {/* Loading indicator */}
-          {loading && (
-            <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            
+            {/* Breadcrumb */}
+            <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center text-sm">
+                <button 
+                  onClick={() => {
+                    setCurrentPath('');
+                    setExpandedFolders(new Set());
+                    const init = async () => {
+                      const data = await fetchDirectory();
+                      setFiles(data);
+                    };
+                    init();
+                  }}
+                  className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Root
+                </button>
+                {currentPath && (
+                  <>
+                    <span className="text-gray-400 mx-2">{'>'}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-600">{currentPath}</span>
+                      <button
+                        onClick={() => handleDownloadDirectory(currentPath)}
+                        className="text-gray-500 hover:text-purple-600 p-1"
+                        title="Download current folder as ZIP"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          )}
 
-          {/* File list */}
-          <FileList
-            items={files}
-            onFolderClick={handleFolderClick}
-            onFileDownload={handleDownload}
-            onFolderDownload={handleDownloadDirectory}
-            expandedFolders={expandedFolders}
-          />
+            {/* Loading indicator */}
+            {loading && (
+              <div className="flex justify-center items-center h-32">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            )}
+
+            {/* File list */}
+            <FileList
+              items={files}
+              onFolderClick={handleFolderClick}
+              onFileDownload={handleDownload}
+              onFolderDownload={handleDownloadDirectory}
+              expandedFolders={expandedFolders}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 };
 

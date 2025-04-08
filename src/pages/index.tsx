@@ -421,7 +421,7 @@ export default function Home() {
               <h2 className="text-md text-gray-700 mb-2 font-bold">Tools</h2>
               <div className="space-y-1.5 mb-2">
                 <a
-                  href="/files"
+                  href="/filebrowser"
                   className="block text-sm text-indigo-700 hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -447,6 +447,16 @@ export default function Home() {
                   rel="noopener noreferrer"
                 >
                   Tasks
+                </a>
+              </div>
+              <div className="space-y-1.5 mb-2">
+                <a
+                  href="/settings"
+                  className="block text-sm text-indigo-700 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Settings
                 </a>
               </div>
             </div>

@@ -215,4 +215,44 @@ export class FileAccessManager {
     addFilesToZip(fullPath, zip);
     return await zip.generateAsync({ type: 'nodebuffer' });
   }
+
+  public async listFolders(): Promise<string[]> {
+    const items = fs.readdirSync(this.basePath, { withFileTypes: true });
+    return items.filter(item => item.isDirectory()).map(dir => dir.name);
+  }
+
+  public async listActions(folder: string): Promise<string[]> {
+    const folderPath = path.join(this.basePath, folder);
+    if (!fs.existsSync(folderPath)) {
+      return [];
+    }
+    const items = fs.readdirSync(folderPath, { withFileTypes: true });
+    return items.filter(item => item.isDirectory()).map(dir => dir.name);
+  }
+
+  public async listPrompts(folder: string, action: string): Promise<string[]> {
+    const actionPath = path.join(this.basePath, folder, action);
+    if (!fs.existsSync(actionPath)) {
+      return [];
+    }
+    return this.getFilenames(actionPath);
+  }
+
+  public async getActionsOrder(folder: string): Promise<string[]> {
+    const orderPath = path.join(this.basePath, folder, 'actions_order.json');
+    if (!fs.existsSync(orderPath)) {
+      return [];
+    }
+    try {
+      const content = fs.readFileSync(orderPath, 'utf-8');
+      return JSON.parse(content);
+    } catch {
+      return [];
+    }
+  }
+
+  public async saveActionsOrder(folder: string, order: string[]): Promise<void> {
+    const orderPath = path.join(this.basePath, folder, 'actions_order.json');
+    this.writeFile(orderPath, JSON.stringify(order, null, 2));
+  }
 } 

@@ -3,6 +3,9 @@ import MarkdownIt from 'markdown-it';
 import MdEditor from 'react-markdown-editor-lite';
 import AdminLayout from '@/components/layout/AdminLayout';
 import 'react-markdown-editor-lite/lib/index.css';
+import { FileAccessManager } from '@lib/file_access_manager';
+import { settingsCache } from '@/utils/settingsCache';
+import { useRouter } from 'next/router';
 
 // Initialize markdown parser
 const mdParser = new MarkdownIt({
@@ -17,9 +20,14 @@ interface PromptFile {
   type: 'system' | 'instruction' | 'custom';
 }
 
-interface FolderContent {
-  folder: string;
+interface Action {
+  name: string;
   prompts: PromptFile[];
+}
+
+interface Folder {
+  folder: string;
+  actions: Action[];
 }
 
 interface ConfirmModalProps {
@@ -40,13 +48,13 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, message, onConfirm,
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-50"
+            className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
+            className="px-3 py-1.5 text-sm text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
           >
             Continue
           </button>
@@ -56,121 +64,107 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, message, onConfirm,
   );
 };
 
-export default function PromptsManager() {
-  const [folders, setFolders] = useState<FolderContent[]>([]);
+const PromptsManager: React.FC = () => {
+  const router = useRouter();
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [selectedAction, setSelectedAction] = useState<string>('default');
   const [selectedPrompt, setSelectedPrompt] = useState<PromptFile | null>(null);
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
-  const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [newPromptName, setNewPromptName] = useState('');
+  const [isCreatingNew, setIsCreatingNew] = useState<boolean>(false);
+  const [newPromptName, setNewPromptName] = useState<string>('');
+  const [isCreatingAction, setIsCreatingAction] = useState<boolean>(false);
+  const [newActionName, setNewActionName] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    message: string;
-    onConfirm: () => void;
-  }>({ isOpen: false, message: '', onConfirm: () => {} });
+  const [confirmModal, setConfirmModal] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Load folders and prompts
+  const md = new MarkdownIt();
+
   useEffect(() => {
     fetchFolders();
   }, []);
 
-  // Load selected prompt content
-  useEffect(() => {
-    if (selectedPrompt) {
-      fetchPromptContent(selectedPrompt.path);
-    }
-  }, [selectedPrompt]);
-
   const fetchFolders = async () => {
     try {
       const response = await fetch('/api/v2/prompts');
+      if (!response.ok) throw new Error('Failed to fetch folders');
       const data = await response.json();
+      console.log('Fetched data:', data); // Debug log
+      setFolders(data.folders);
       
-      // Add default prompts to each folder if they don't exist
-      const foldersWithDefaults = (data.folders || []).map((folder: FolderContent) => ({
-        ...folder,
-        prompts: [
-          // Add system_prompt.md if it doesn't exist
-          ...(folder.prompts.some((p: PromptFile) => p.name === 'system_prompt.md') ? [] : [{
-            name: 'system_prompt.md',
-            path: `${folder.folder}/system_prompt.md`,
-            type: 'system' as const
-          }]),
-          // Add instructions.md if it doesn't exist
-          ...(folder.prompts.some((p: PromptFile) => p.name === 'instructions.md') ? [] : [{
-            name: 'instructions.md',
-            path: `${folder.folder}/instructions.md`,
-            type: 'instruction' as const
-          }]),
-          // Include existing prompts
-          ...folder.prompts
-        ]
-      }));
-
-      setFolders(foldersWithDefaults);
+      // If we have folders but no selected folder, select the first one
+      if (data.folders.length > 0 && !selectedFolder) {
+        handleFolderSelect(data.folders[0].folder);
+      }
     } catch (err) {
-      setError('Failed to load folders');
+      setError(err instanceof Error ? err.message : 'Failed to fetch folders');
     }
   };
 
-  const fetchPromptContent = async (path: string) => {
+  const handleFolderSelect = (folder: string) => {
+    setSelectedFolder(folder);
+    const firstAction = folders.find(f => f.folder === folder)?.actions[0]?.name || 'default';
+    setSelectedAction(firstAction);
+    setSelectedPrompt(null);
+    setContent('');
+    setOriginalContent('');
+    setIsCreatingNew(false);
+    setIsCreatingAction(false);
+  };
+
+  const handleActionSelect = (action: string) => {
+    setSelectedAction(action);
+    setSelectedPrompt(null);
+    setContent('');
+    setOriginalContent('');
+    setIsCreatingNew(false);
+  };
+
+  const handlePromptSelect = async (prompt: PromptFile) => {
+    if (content !== originalContent) {
+      setPendingAction(() => () => handlePromptSelect(prompt));
+      setConfirmModal(true);
+      return;
+    }
+
     try {
-      const tpath = path.replace("//", "/").replace('\\', '/');
-      const response = await fetch(`/api/v2/prompts?folder=${tpath.split('/')[0]}&filename=${tpath.split('/')[1]}`);
-      if(response.status === 404) {
-        setContent("");
-        setOriginalContent("");
-        return;
-      }
+      const response = await fetch(`/api/v2/prompts?folder=${selectedFolder}&filename=${prompt.name}&action=${selectedAction}`);
+      if (!response.ok) throw new Error('Failed to fetch prompt content');
       const data = await response.json();
+      setSelectedPrompt(prompt);
       setContent(data.content);
       setOriginalContent(data.content);
     } catch (err) {
-      setError('Failed to load prompt content');
+      setError(err instanceof Error ? err.message : 'Failed to fetch prompt content');
     }
   };
 
   const handleSave = async () => {
+    if (!selectedFolder || !selectedPrompt) return;
+
     try {
-      if (!selectedFolder) {
-        setError('Please select a folder first');
-        return;
-      }
-
-      const filename = isCreatingNew ? 
-        newPromptName.toLowerCase().replace(/[^a-z0-9_]/g, '_') + '.md' : 
-        selectedPrompt?.name;
-
-      await fetch('/api/v2/prompts', {
+      const response = await fetch('/api/v2/prompts', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           folder: selectedFolder,
-          filename,
+          filename: selectedPrompt.name,
           content,
-        }),
+          action: selectedAction
+        })
       });
 
-      if (isCreatingNew) {
-        setIsCreatingNew(false);
-        setNewPromptName('');
-        await fetchFolders();
-        // Select the newly created prompt
-        const newPrompt = folders
-          .find(f => f.folder === selectedFolder)
-          ?.prompts.find(p => p.name === filename);
-        if (newPrompt) {
-          setSelectedPrompt(newPrompt);
-        }
-      }
+      if (!response.ok) throw new Error('Failed to save prompt');
       setOriginalContent(content);
-      setError('');
+      setNotification({ message: 'Prompt saved successfully', type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
     } catch (err) {
-      setError('Failed to save prompt');
+      setError(err instanceof Error ? err.message : 'Failed to save prompt');
+      setNotification({ message: 'Failed to save prompt', type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
     }
   };
 
@@ -179,167 +173,328 @@ export default function PromptsManager() {
       setError('Please select a folder first');
       return;
     }
+    setIsCreatingNew(true);
+    setNewPromptName('');
+  };
 
-    if (hasChanges) {
-      setConfirmModal({
-        isOpen: true,
-        message: 'You have unsaved changes. Are you sure you want to create a new prompt? Your changes will be lost.',
-        onConfirm: () => {
-          setConfirmModal({ ...confirmModal, isOpen: false });
-          setIsCreatingNew(true);
-          setSelectedPrompt(null);
-          setContent('');
-          setOriginalContent('');
-        }
+  const handleNewAction = () => {
+    if (!selectedFolder) {
+      setError('Please select a folder first');
+      return;
+    }
+    setIsCreatingAction(true);
+    setNewActionName('');
+  };
+
+  const handleCreatePrompt = async () => {
+    if (!newPromptName) {
+      setError('Please enter a prompt name');
+      return;
+    }
+
+    const sanitizedName = newPromptName.replace(/[^a-zA-Z0-9-_]/g, '_').toLowerCase();
+    const filename = sanitizedName.endsWith('.md') ? sanitizedName : `${sanitizedName}.md`;
+
+    try {
+      const response = await fetch('/api/v2/prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder: selectedFolder,
+          filename,
+          content: '',
+          action: selectedAction
+        })
       });
-    } else {
-      setIsCreatingNew(true);
+
+      if (!response.ok) throw new Error('Failed to create prompt');
+      await fetchFolders();
+      setIsCreatingNew(false);
+      setNewPromptName('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create prompt');
+    }
+  };
+
+  const handleCreateAction = async () => {
+    if (!newActionName) {
+      setError('Please enter an action name');
+      return;
+    }
+
+    const sanitizedName = newActionName.replace(/[^a-zA-Z0-9-_]/g, '_').toLowerCase();
+
+    try {
+      // Create the action directory by creating a dummy file
+      const response = await fetch('/api/v2/prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder: selectedFolder,
+          filename: 'system_prompt.md',
+          content: '',
+          action: sanitizedName
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to create action');
+      await fetchFolders();
+      setIsCreatingAction(false);
+      setNewActionName('');
+      setSelectedAction(sanitizedName);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create action');
+    }
+  };
+
+  const handleDeletePrompt = async () => {
+    if (!selectedFolder || !selectedPrompt) return;
+
+    try {
+      const response = await fetch(`/api/v2/prompts?folder=${selectedFolder}&filename=${selectedPrompt.name}&action=${selectedAction}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete prompt');
+      await fetchFolders();
       setSelectedPrompt(null);
       setContent('');
       setOriginalContent('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete prompt');
     }
   };
 
-  const handlePromptSelect = (prompt: PromptFile) => {
-    if (hasChanges) {
-      setConfirmModal({
-        isOpen: true,
-        message: 'You have unsaved changes. Are you sure you want to switch prompts? Your changes will be lost.',
-        onConfirm: () => {
-          setConfirmModal({ ...confirmModal, isOpen: false });
-          setSelectedPrompt(prompt);
-        }
-      });
-    } else {
-      setSelectedPrompt(prompt);
+  const handleConfirm = () => {
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
     }
+    setConfirmModal(false);
   };
 
-  const handleEditorChange = ({ text }: { text: string }) => {
-    setContent(text);
+  const handleCancel = () => {
+    setPendingAction(null);
+    setConfirmModal(false);
   };
 
-  const handleReload = async () => {
-    if (hasChanges) {
-      setConfirmModal({
-        isOpen: true,
-        message: 'You have unsaved changes. Are you sure you want to reload? Your changes will be lost.',
-        onConfirm: () => {
-          setConfirmModal({ ...confirmModal, isOpen: false });
-          fetchFolders();
-        }
-      });
-    } else {
-      fetchFolders();
-    }
-  };
-
-  const hasChanges = content !== originalContent || isCreatingNew;
+  const currentFolder = folders.find(f => f.folder === selectedFolder);
+  const currentAction = currentFolder?.actions.find(a => a.name === selectedAction);
+  const currentPrompts = currentAction?.prompts || [];
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-3rem)] flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold">Prompts Manager</h1>
-            <button
-              onClick={handleNewPrompt}
-              className="bg-[#FF9900] text-white px-4 py-1.5 rounded hover:bg-[#F08700] text-sm font-medium"
-              disabled={!selectedFolder}
-            >
-              New Prompt
-            </button>
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-6">Prompts Manager</h1>
+
+        {notification && (
+          <div key="notification" className={`mb-4 p-3 text-sm rounded ${
+            notification.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+          }`}>
+            {notification.message}
           </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSave}
-              disabled={!hasChanges || (isCreatingNew && !newPromptName) || !selectedFolder}
-              className="min-w-[100px] bg-gray-700 text-white px-6 py-1.5 rounded hover:bg-gray-800 disabled:bg-gray-300 text-sm"
-            >
-              Save
-            </button>
-            <button
-              onClick={handleReload}
-              className="bg-gray-700 text-white px-4 py-1.5 rounded hover:bg-gray-800 text-sm"
-            >
-              Reload
-            </button>
-          </div>
-        </div>
-        
+        )}
+
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded mb-3 text-sm">
+          <div key="error" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">
             {error}
           </div>
         )}
 
-        <div className="flex gap-3 mb-3">
-          <select
-            className="flex-1 px-3 py-1.5 border rounded text-sm bg-white"
-            value={selectedFolder}
-            onChange={(e) => setSelectedFolder(e.target.value)}
-          >
-            <option value="">Select a folder</option>
-            {folders.map((folder) => (
-              <option key={folder.folder} value={folder.folder}>
-                {folder.folder}
-              </option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-1">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="space-y-6">
+                <div>
+                  <div className="relative">
+                    <select
+                      id="bot-select"
+                      className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-500"
+                      value={selectedFolder}
+                      onChange={(e) => handleFolderSelect(e.target.value)}
+                    >
+                      <option value="" disabled>Select Bot</option>
+                      {folders.map((folder) => (
+                        <option key={`folder-${folder.folder}`} value={folder.folder} className="text-gray-900">
+                          {folder.folder}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
 
-          <select
-            className="flex-1 px-3 py-1.5 border rounded text-sm bg-white"
-            value={selectedPrompt?.path || ''}
-            onChange={(e) => {
-              const prompt = folders
-                .find(f => f.folder === selectedFolder)
-                ?.prompts.find(p => p.path === e.target.value);
-              if (prompt) {
-                handlePromptSelect(prompt);
-              }
-            }}
-            disabled={!selectedFolder || isCreatingNew}
-          >
-            <option value="">Select a prompt</option>
-            {selectedFolder && folders
-              .find(f => f.folder === selectedFolder)
-              ?.prompts.map((prompt) => (
-                <option key={prompt.path} value={prompt.path}>
-                  {prompt.name} ({prompt.type})
-                </option>
-              ))}
-          </select>
+                {selectedFolder && (
+                  <>
+                    <div>
+                      <div className="flex gap-3">
+                        <div className="relative flex-1">
+                          <select
+                            id="action-select"
+                            className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-500"
+                            value={selectedAction}
+                            onChange={(e) => handleActionSelect(e.target.value)}
+                          >
+                            <option value="" disabled>Select Action</option>
+                            {currentFolder?.actions.map((action) => (
+                              <option key={`action-${action.name}`} value={action.name} className="text-gray-900">
+                                {action.name}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                        <button
+                          className="px-2.5 py-1 text-xs text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                          onClick={handleNewAction}
+                          disabled={isCreatingAction}
+                        >
+                          Add Action
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-600">Prompts</label>
+                        <button
+                          className="px-2.5 py-1 text-xs text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                          onClick={handleNewPrompt}
+                          disabled={isCreatingNew}
+                        >
+                          New Prompt
+                        </button>
+                      </div>
+                    </div>
+
+                    {isCreatingNew ? (
+                      <div key="create-prompt" className="mb-3">
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent mb-2"
+                          placeholder="Enter prompt name"
+                          value={newPromptName}
+                          onChange={(e) => setNewPromptName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleCreatePrompt();
+                            if (e.key === 'Escape') {
+                              setIsCreatingNew(false);
+                              setNewPromptName('');
+                            }
+                          }}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            className="px-2.5 py-1 text-xs text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                            onClick={handleCreatePrompt}
+                          >
+                            Create
+                          </button>
+                          <button
+                            className="px-2.5 py-1 text-xs text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                            onClick={() => {
+                              setIsCreatingNew(false);
+                              setNewPromptName('');
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="space-y-0.5">
+                      {currentPrompts.map((prompt) => (
+                        <div
+                          key={`prompt-${prompt.path}`}
+                          className={`px-2.5 py-1 text-xs rounded cursor-pointer ${
+                            selectedPrompt?.path === prompt.path
+                              ? 'bg-gray-100 border border-gray-200'
+                              : 'hover:bg-gray-50 border border-transparent'
+                          }`}
+                          onClick={() => handlePromptSelect(prompt)}
+                        >
+                          {prompt.name}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-2">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              {selectedPrompt ? (
+                <>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-semibold">{selectedPrompt.name}</h2>
+                    <div className="flex gap-2">
+                      <button
+                        className="px-3 py-1.5 text-sm text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleSave}
+                        disabled={content === originalContent}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="px-3 py-1.5 text-sm text-white bg-red-600 rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        onClick={handleDeletePrompt}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <MdEditor
+                    style={{ height: '500px' }}
+                    renderHTML={(text) => mdParser.render(text)}
+                    onChange={({ text }) => setContent(text)}
+                    value={content}
+                  />
+                </>
+              ) : (
+                <div className="text-center text-gray-500 text-sm">
+                  Select a prompt to edit
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {isCreatingNew && (
-          <div className="mb-3">
-            <input
-              type="text"
-              placeholder="Enter prompt name (a-z, 0-9, underscore)"
-              className="w-full px-3 py-1.5 border rounded text-sm"
-              value={newPromptName}
-              onChange={(e) => setNewPromptName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-            />
+        {confirmModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="text-lg font-semibold mb-4">Unsaved Changes</h3>
+              <p className="mb-4 text-sm text-gray-600">You have unsaved changes. Do you want to continue?</p>
+              <div className="flex justify-end gap-2">
+                <button
+                  className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-3 py-1.5 text-sm text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  onClick={handleConfirm}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
           </div>
         )}
-
-        <div className="flex-1 min-h-0">
-          <MdEditor
-            value={content}
-            renderHTML={text => mdParser.render(text)}
-            onChange={handleEditorChange}
-            style={{ height: '100%' }}
-          />
-        </div>
-
-        <ConfirmModal
-          isOpen={confirmModal.isOpen}
-          message={confirmModal.message}
-          onConfirm={confirmModal.onConfirm}
-          onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-        />
       </div>
     </AdminLayout>
   );
-} 
+};
+
+export default PromptsManager; 

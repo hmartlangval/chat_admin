@@ -12,7 +12,7 @@ interface Message {
   senderName: string;
   senderType: string;
   content: string;
-  tags: string[];
+  tags?: string[];
   timestamp: number;
 }
 
@@ -160,82 +160,126 @@ export default function Home() {
     setParticipantModalOpen(true);
   };
 
+  // Handle retry click
+  const handleRetryClick = (message: Message) => {
+    if (!isConnected) return;
+    
+    // Ask for confirmation before proceeding
+    const confirmRetry = window.confirm('Are you sure you want to retry this message?');
+    if (!confirmRetry) return;
+
+    // Find the JSON content in the original message
+    const jsonRegex = /\[json\]([\s\S]*?)\[\/json\]/;
+    const jsonMatch = message.content.match(jsonRegex);
+    const jsonContent = jsonMatch ? jsonMatch[0] : '';
+
+
+    // Create the retry message with the original sender tagged
+    const retryMessage = `@${message.senderId} Retrying your request...\n${jsonContent}`;
+
+    // Send the retry message
+    fetch(`/api/channels/${activeChannel}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channelId: activeChannel,
+        content: retryMessage,
+        senderName: 'Admin',
+      }),
+    })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Retry message sent:', data);
+      })
+      .catch(error => {
+        console.error('Error sending retry message:', error);
+      });
+  };
+
+  // Expose handleRetryClick to window object
+  React.useEffect(() => {
+    (window as any).handleRetryClick = handleRetryClick;
+    return () => {
+      delete (window as any).handleRetryClick;
+    };
+  }, [handleRetryClick]);
+
   // Render message content with data reference links
-  const renderMessageContent = (content: string) => {
+  const renderMessageContent = (content: string, message?: Message) => {
     // First check for data references [id: xxx]
     const dataRefRegex = /\[id:\s*([a-zA-Z0-9_]+)\]/g;
     const dataRefParts = content.split(dataRefRegex);
 
-    // If there are no data references, check for JSON content
+    // If there are no data references, check for JSON content and Retry tags
     if (dataRefParts.length <= 1) {
-      // Check for JSON tags [json]...[/json]
+      let processedContent = content;
+      const jsonSegments: Record<string, any> = {};
+      let index = 0;
+
+      // Process JSON tags first
       const jsonRegex = /\[json\]([\s\S]*?)\[\/json\]/g;
-      if (content.match(jsonRegex)) {
-        // Process JSON content
-        let processedContent = content;
-        let match;
-        let index = 0;
-        const jsonSegments: Record<string, any> = {};
-
-        // Reset regex state
-        jsonRegex.lastIndex = 0;
-
-        while ((match = jsonRegex.exec(content)) !== null) {
-          try {
-            const fullMatch = match[0];
-            const jsonContent = match[1];
-            const jsonData = JSON.parse(jsonContent);
-            const jsonId = `inline-json-${index++}`;
-
-            // Store the parsed JSON
-            jsonSegments[jsonId] = jsonData;
-
-            // Replace the JSON block with a placeholder
-            processedContent = processedContent.replace(
-              fullMatch,
-              `[JSON data]`
-            );
-          } catch (err) {
-            console.error('Error parsing inline JSON:', err);
-          }
+      processedContent = processedContent.replace(jsonRegex, (match, jsonContent) => {
+        try {
+          const jsonData = JSON.parse(jsonContent);
+          const jsonId = `inline-json-${index++}`;
+          jsonSegments[jsonId] = jsonData;
+          return '[JSON data]';
+        } catch (err) {
+          console.error('Error parsing inline JSON:', err);
+          return match;
         }
+      });
 
-        // If we processed any JSON, render with simple link
-        if (Object.keys(jsonSegments).length > 0) {
-          const parts = processedContent.split(/(\[JSON data\])/);
-          return parts.map((part, idx) => {
-            if (part === '[JSON data]') {
-              const jsonId = `inline-json-${Math.floor(idx/2)}`;
-              return (
-                <React.Fragment key={idx}>
-                  <span>[</span>
-                  <a
-                    href="#"
-                    className="text-blue-600 underline"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSharedData({
-                        id: jsonId,
-                        type: 'json',
-                        content: JSON.stringify(jsonSegments[jsonId], null, 2),
-                        timestamp: Date.now()
-                      });
-                      setDataModalOpen(true);
-                    }}
-                  >
-                    JSON data
-                  </a>
-                  <span>]</span>
-                </React.Fragment>
-              );
-            }
-            return part ? <span key={idx}>{part}</span> : null;
-          });
+      // Split content into parts by both JSON data and Retry tags
+      const parts = processedContent.split(/(\[JSON data\])|(\[Retry\])/);
+      
+      // Filter out empty strings and map each part to appropriate React component
+      return parts.filter(Boolean).map((part, idx) => {
+        if (part === '[JSON data]') {
+          const jsonId = `inline-json-${Math.floor(idx/2)}`;
+          return (
+            <React.Fragment key={`json-${idx}`}>
+              <span>[</span>
+              <a
+                href="#"
+                className="text-blue-600 underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSharedData({
+                    id: jsonId,
+                    type: 'json',
+                    content: JSON.stringify(jsonSegments[jsonId], null, 2),
+                    timestamp: Date.now()
+                  });
+                  setDataModalOpen(true);
+                }}
+              >
+                JSON data
+              </a>
+              <span>]</span>
+            </React.Fragment>
+          );
+        } else if (part === '[Retry]' && message) {
+          return (
+            <>[
+            <a
+              key={`retry-${idx}`}
+              href="#"
+              className="text-blue-600 underline"
+              onClick={(e) => {
+                e.preventDefault();
+                handleRetryClick(message);
+              }}
+            >
+              Retry
+            </a>
+            ]</>
+          );
         }
-      }
-
-      // If no special content found, return plain text
-      return content;
+        return <span key={`text-${idx}`}>{part}</span>;
+      });
     }
 
     // Process data references
@@ -516,7 +560,7 @@ export default function Home() {
                     >
                       {message.senderId === 'system' ? (
                         <div className="text-gray-400">
-                          {renderMessageContent(message.content)}
+                          {renderMessageContent(message.content, message)}
                         </div>
                       ) : (
                         <div>
@@ -524,7 +568,7 @@ export default function Home() {
                             {message.senderName}:
                           </span>
                           <span className="text-gray-100">
-                            {renderMessageContent(message.content)}
+                            {renderMessageContent(message.content, message)}
                           </span>
                         </div>
                       )}

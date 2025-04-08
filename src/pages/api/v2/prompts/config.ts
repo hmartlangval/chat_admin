@@ -99,6 +99,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (updates.activeInstructionPrompt !== undefined) {
                 config.actions[action].activeInstructionPrompt = updates.activeInstructionPrompt;
             }
+            if (updates.requires_browser !== undefined) {
+                config.actions[action].requires_browser = updates.requires_browser;
+            }
+
+            // delete updates.activeSystemPrompt;
+            // delete updates.activeInstructionPrompt;
+
+            // if (Object.keys(updates).length > 0) {
+            //     config.actions[action] = { 
+            //         ...config.actions[action], 
+            //         ...updates 
+            //     };
+            // }
 
             // Write the updated config
             await fileManager.writeFileRelative(configPath, JSON.stringify(config, null, 2));

@@ -26,6 +26,7 @@ interface Action {
   prompts: PromptFile[];
   activeSystemPrompt?: string;
   activeInstructionPrompt?: string;
+  requires_browser?: boolean;
 }
 
 interface Folder {
@@ -132,7 +133,8 @@ const PromptsManager: React.FC = () => {
                 return {
                   ...a,
                   activeSystemPrompt: activeData.activeSystemPrompt,
-                  activeInstructionPrompt: activeData.activeInstructionPrompt
+                  activeInstructionPrompt: activeData.activeInstructionPrompt,
+                  requires_browser: activeData.requires_browser
                 };
               }
               return a;
@@ -405,6 +407,35 @@ const PromptsManager: React.FC = () => {
     }
   };
 
+  const handleToggleRequiresBrowser = async (value: boolean) => {
+    if (!selectedFolder || !selectedAction) return;
+
+    try {
+        const response = await fetch('/api/v2/prompts/config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                folder: selectedFolder,
+                action: selectedAction,
+                updates: {
+                    requires_browser: value
+                }
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update requires_browser setting');
+        }
+
+        await fetchFolderState(selectedFolder, selectedAction);
+    } catch (error) {
+        console.error('Error updating requires_browser:', error);
+        toast.error('Failed to update requires_browser setting');
+    }
+  };
+
   const currentFolder = folders.find(f => f.folder === selectedFolder);
   const currentAction = currentFolder?.actions.find(a => a.name === selectedAction);
   const currentPrompts = currentAction?.prompts || [];
@@ -428,11 +459,11 @@ const PromptsManager: React.FC = () => {
                   <div className="relative">
                     <select
                       id="bot-select"
-                      className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-500"
+                      className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-900"
                       value={selectedFolder}
                       onChange={(e) => handleFolderSelect(e.target.value)}
                     >
-                      <option value="" disabled>Select Bot</option>
+                      <option value="" disabled className="text-gray-500">Select Bot</option>
                       {folders.map((folder) => (
                         <option key={`folder-${folder.folder}`} value={folder.folder} className="text-gray-900">
                           {folder.folder}
@@ -454,11 +485,11 @@ const PromptsManager: React.FC = () => {
                         <div className="relative flex-1">
                           <select
                             id="action-select"
-                            className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-500"
+                            className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-transparent bg-white appearance-none text-gray-900"
                             value={selectedAction}
                             onChange={(e) => handleActionSelect(e.target.value)}
                           >
-                            <option value="" disabled>Select Action</option>
+                            <option value="" disabled className="text-gray-500">Select Action</option>
                             {currentFolder?.actions.map((action) => (
                               <option key={`action-${action.name}`} value={action.name} className="text-gray-900">
                                 {action.name}
@@ -474,7 +505,6 @@ const PromptsManager: React.FC = () => {
                         <button
                           className="px-2.5 py-1 text-xs text-white bg-gray-700 rounded hover:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                           onClick={handleNewAction}
-                          // disabled={isCreatingAction}
                           disabled={true}
                         >
                           Add Action
@@ -493,7 +523,7 @@ const PromptsManager: React.FC = () => {
                           New Prompt
                         </button>
                       </div>
-                    </div>
+                    </div>                    
 
                     {isCreatingNew ? (
                       <div key="create-prompt" className="mb-3">
@@ -546,7 +576,7 @@ const PromptsManager: React.FC = () => {
                             }`}
                             onClick={() => handlePromptSelect(prompt)}
                           >
-                            <span>{prompt.name}</span>
+                            <span className={`${(isSystem || isInstruction) ? 'font-bold' : ''}`}>{prompt.name}</span>
                             <div className="flex gap-1">
                               <button
                                 className={`p-1 rounded-full ${
@@ -593,6 +623,16 @@ const PromptsManager: React.FC = () => {
                         );
                       })}
                     </div>
+
+                    <div className="flex items-center gap-2 mb-4">
+                      <label className="text-xs font-medium text-gray-600">Requires Browser</label>
+                      <input
+                        type="checkbox"
+                        checked={currentAction?.requires_browser || false}
+                        onChange={(e) => handleToggleRequiresBrowser(e.target.checked)}
+                        className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                      />
+                    </div>
                   </>
                 )}
               </div>
@@ -626,6 +666,7 @@ const PromptsManager: React.FC = () => {
                     renderHTML={(text) => mdParser.render(text)}
                     onChange={({ text }) => setContent(text)}
                     value={content}
+                    view={{ menu: true, md: true, html: false }}
                   />
                 </>
               ) : (

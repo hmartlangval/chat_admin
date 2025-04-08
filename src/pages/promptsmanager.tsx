@@ -6,6 +6,7 @@ import 'react-markdown-editor-lite/lib/index.css';
 import { FileAccessManager } from '@lib/file_access_manager';
 import { settingsCache } from '@/utils/settingsCache';
 import { useRouter } from 'next/router';
+import { toast } from 'react-hot-toast';
 
 // Initialize markdown parser
 const mdParser = new MarkdownIt({
@@ -81,7 +82,6 @@ const PromptsManager: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [confirmModal, setConfirmModal] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const md = new MarkdownIt();
 
@@ -193,12 +193,10 @@ const PromptsManager: React.FC = () => {
 
       if (!response.ok) throw new Error('Failed to save prompt');
       setOriginalContent(content);
-      setNotification({ message: 'Prompt saved successfully', type: 'success' });
-      setTimeout(() => setNotification(null), 3000);
+      toast.success('Prompt saved successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save prompt');
-      setNotification({ message: 'Failed to save prompt', type: 'error' });
-      setTimeout(() => setNotification(null), 3000);
+      console.error('Error saving prompt:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to save prompt');
     }
   };
 
@@ -222,7 +220,7 @@ const PromptsManager: React.FC = () => {
 
   const handleCreatePrompt = async () => {
     if (!newPromptName) {
-      setError('Please enter a prompt name');
+      toast.error('Please enter a prompt name');
       return;
     }
 
@@ -245,14 +243,16 @@ const PromptsManager: React.FC = () => {
       await fetchFolders();
       setIsCreatingNew(false);
       setNewPromptName('');
+      toast.success('Prompt created successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create prompt');
+      console.error('Error creating prompt:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to create prompt');
     }
   };
 
   const handleCreateAction = async () => {
     if (!newActionName) {
-      setError('Please enter an action name');
+      toast.error('Please enter an action name');
       return;
     }
 
@@ -276,8 +276,10 @@ const PromptsManager: React.FC = () => {
       setIsCreatingAction(false);
       setNewActionName('');
       setSelectedAction(sanitizedName);
+      toast.success('Action created successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create action');
+      console.error('Error creating action:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to create action');
     }
   };
 
@@ -294,8 +296,10 @@ const PromptsManager: React.FC = () => {
       setSelectedPrompt(null);
       setContent('');
       setOriginalContent('');
+      toast.success('Prompt deleted successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete prompt');
+      console.error('Error deleting prompt:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete prompt');
     }
   };
 
@@ -350,12 +354,10 @@ const PromptsManager: React.FC = () => {
       });
 
       setFolders(updatedFolders);
-      setNotification({ message: 'Active prompt updated', type: 'success' });
-      setTimeout(() => setNotification(null), 3000);
+      toast.success('Active prompt updated');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update active prompt');
-      setNotification({ message: 'Failed to update active prompt', type: 'error' });
-      setTimeout(() => setNotification(null), 3000);
+      console.error('Error updating active prompt:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update active prompt');
     }
   };
 
@@ -367,14 +369,6 @@ const PromptsManager: React.FC = () => {
     <AdminLayout>
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">Prompts Manager</h1>
-
-        {notification && (
-          <div key="notification" className={`mb-4 p-3 text-sm rounded ${
-            notification.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-          }`}>
-            {notification.message}
-          </div>
-        )}
 
         {error && (
           <div key="error" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">

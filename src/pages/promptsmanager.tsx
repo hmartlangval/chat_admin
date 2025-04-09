@@ -7,6 +7,7 @@ import { FileAccessManager } from '@lib/file_access_manager';
 import { settingsCache } from '@/utils/settingsCache';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
+import { useLoading, withLoading } from '@/contexts/LoadingContext';
 
 // Initialize markdown parser
 const mdParser = new MarkdownIt({
@@ -71,6 +72,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, message, onConfirm,
 
 const PromptsManager: React.FC = () => {
   const router = useRouter();
+  const { startLoading, stopLoading } = useLoading();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [selectedAction, setSelectedAction] = useState<string>('default');
@@ -90,7 +92,7 @@ const PromptsManager: React.FC = () => {
   const md = new MarkdownIt();
 
   const fetchFolders = async () => {
-    try {
+    return withLoading(async () => {
       const response = await fetch('/api/v2/prompts');
       if (!response.ok) throw new Error('Failed to fetch folders');
       const data = await response.json();
@@ -105,15 +107,13 @@ const PromptsManager: React.FC = () => {
         // Fetch active prompts for initial folder/action
         await fetchFolderState(firstFolder, firstAction);
       }
-    } catch (err) {
-      console.error('Error fetching folders:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to fetch folders');
-    }
+    }, { startLoading, stopLoading });
   };
 
   // Single function to fetch folder state (folders list + active prompts)
   const fetchFolderState = async (folder: string, action: string) => {
     try {
+      startLoading();
       const [foldersResponse, activeResponse] = await Promise.all([
         fetch('/api/v2/prompts'),
         fetch(`/api/v2/prompts/config?folder=${folder}&action=${action}`)
@@ -152,6 +152,8 @@ const PromptsManager: React.FC = () => {
     } catch (err) {
       console.error('Error fetching folder state:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to fetch folder state');
+    } finally {
+      stopLoading();
     }
   };
 
@@ -231,6 +233,7 @@ const PromptsManager: React.FC = () => {
     if (content !== originalContent) {
       setPendingAction(() => async () => {
         try {
+          startLoading();
           const response = await fetch(`/api/v2/prompts?folder=${selectedFolder}&filename=${prompt.name}&action=${selectedAction}`);
           if (!response.ok) throw new Error('Failed to fetch prompt content');
           const data = await response.json();
@@ -239,6 +242,8 @@ const PromptsManager: React.FC = () => {
           setOriginalContent(data.content);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to fetch prompt content');
+        } finally {
+          stopLoading();
         }
       });
       setConfirmModal(true);
@@ -247,6 +252,7 @@ const PromptsManager: React.FC = () => {
 
     // If no unsaved changes, proceed directly
     try {
+      startLoading();
       const response = await fetch(`/api/v2/prompts?folder=${selectedFolder}&filename=${prompt.name}&action=${selectedAction}`);
       if (!response.ok) throw new Error('Failed to fetch prompt content');
       const data = await response.json();
@@ -255,6 +261,8 @@ const PromptsManager: React.FC = () => {
       setOriginalContent(data.content);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch prompt content');
+    } finally {
+      stopLoading();
     }
   };
 
@@ -262,6 +270,7 @@ const PromptsManager: React.FC = () => {
     if (!selectedFolder || !selectedPrompt) return;
 
     try {
+      startLoading();
       const response = await fetch('/api/v2/prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -279,6 +288,8 @@ const PromptsManager: React.FC = () => {
     } catch (err) {
       console.error('Error saving prompt:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to save prompt');
+    } finally {
+      stopLoading();
     }
   };
 
@@ -310,6 +321,7 @@ const PromptsManager: React.FC = () => {
     const filename = sanitizedName.endsWith('.md') ? sanitizedName : `${sanitizedName}.md`;
 
     try {
+      startLoading();
       const response = await fetch('/api/v2/prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -329,6 +341,8 @@ const PromptsManager: React.FC = () => {
     } catch (err) {
       console.error('Error creating prompt:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to create prompt');
+    } finally {
+      stopLoading();
     }
   };
 
@@ -341,6 +355,7 @@ const PromptsManager: React.FC = () => {
     const sanitizedName = newActionName.replace(/[^a-zA-Z0-9-_]/g, '_').toLowerCase();
 
     try {
+      startLoading();
       const response = await fetch('/api/v2/prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -360,6 +375,8 @@ const PromptsManager: React.FC = () => {
     } catch (err) {
       console.error('Error creating action:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to create action');
+    } finally {
+      stopLoading();
     }
   };
 
@@ -367,6 +384,7 @@ const PromptsManager: React.FC = () => {
     if (!selectedFolder || !selectedPrompt) return;
 
     try {
+      startLoading();
       const response = await fetch(`/api/v2/prompts?folder=${selectedFolder}&filename=${selectedPrompt.name}&action=${selectedAction}`, {
         method: 'DELETE'
       });
@@ -380,6 +398,8 @@ const PromptsManager: React.FC = () => {
     } catch (err) {
       console.error('Error deleting prompt:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to delete prompt');
+    } finally {
+      stopLoading();
     }
   };
 
@@ -400,6 +420,7 @@ const PromptsManager: React.FC = () => {
     if (!selectedFolder || !selectedAction) return;
 
     try {
+      startLoading();
       const response = await fetch('/api/v2/prompts/config', {
         method: 'POST',
         headers: {
@@ -421,6 +442,8 @@ const PromptsManager: React.FC = () => {
       await fetchFolderState(selectedFolder, selectedAction);
     } catch (error) {
       console.error('Error updating active prompt:', error);
+    } finally {
+      stopLoading();
     }
   };
 
@@ -428,6 +451,7 @@ const PromptsManager: React.FC = () => {
     if (!selectedFolder || !selectedAction) return;
 
     try {
+      startLoading();
       const response = await fetch('/api/v2/prompts/config', {
         method: 'POST',
         headers: {
@@ -450,6 +474,8 @@ const PromptsManager: React.FC = () => {
     } catch (error) {
       console.error('Error updating requires_browser:', error);
       toast.error('Failed to update requires_browser setting');
+    } finally {
+      stopLoading();
     }
   };
 

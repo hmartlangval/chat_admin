@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import FileList from '../components/FileList';
 import AdminLayout from '@/components/layout/AdminLayout';
+import { useLoading, withLoading } from '@/contexts/LoadingContext';
 
 interface FileItem {
   name: string;
@@ -16,37 +17,28 @@ interface FileItem {
 const FileBrowser = () => {
   const [currentPath, setCurrentPath] = useState<string>('');
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [loading, setLoading] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [checkedCount, setCheckedCount] = useState(0);
   const fileListRef = useRef<any>(null);
+  const { startLoading, stopLoading } = useLoading();
   
   const fetchDirectory = async (path: string = '') => {
-    try {
-      setLoading(true);
+    return withLoading(async () => {
       const response = await axios.get(`/api/files?path=${encodeURIComponent(path)}`);
       return response.data;
-    } catch (error) {
-      console.error('Failed to fetch directory contents:', error);
-      return [];
-    } finally {
-      setLoading(false);
-    }
+    }, { startLoading, stopLoading });
   };
 
   const handleFolderClick = async (file: FileItem) => {
     if (expandedFolders.has(file.path)) {
-      // Collapse folder
       const newExpanded = new Set(expandedFolders);
       newExpanded.delete(file.path);
       setExpandedFolders(newExpanded);
     } else {
-      // Expand folder
       const newExpanded = new Set(expandedFolders);
       newExpanded.add(file.path);
       setExpandedFolders(newExpanded);
 
-      // Fetch folder contents if not already loaded
       if (!file.children) {
         const data = await fetchDirectory(file.path);
         const updatedFiles = files.map(f => {
@@ -61,7 +53,7 @@ const FileBrowser = () => {
   };
 
   const handleDownload = async (filePath: string) => {
-    try {
+    return withLoading(async () => {
       const response = await axios.get(`/api/files?path=${encodeURIComponent(filePath)}&download=true`, {
         responseType: 'blob',
       });
@@ -73,41 +65,29 @@ const FileBrowser = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch (error) {
-      console.error('Failed to download file:', error);
-    }
+    }, { startLoading, stopLoading });
   };
 
   const handleDelete = async (folderPath: string, paths?: string[]) => {
-    try {
+    return withLoading(async () => {
       if (paths) {
         if(paths.length === 0) return;
         const confirmDelete = window.confirm(`WARNING: This action is irreversible. Are you sure you want to delete all the selected folders?`);
-        if (!confirmDelete) {
-          return;
-        }
-        await axios.delete(`/api/files`, {
-          data: { paths }
-        });
+        if (!confirmDelete) return;
+        await axios.delete(`/api/files`, { data: { paths } });
         setFiles(files.filter(f => !paths.includes(f.path)));
-      }
-      else {
+      } else {
         if (!folderPath) return;
         const confirmDelete = window.confirm(`WARNING: This action is irreversible. Are you sure you want to delete the folder: ${folderPath}?`);
-        if (!confirmDelete) {
-          return;
-        }
+        if (!confirmDelete) return;
         await axios.delete(`/api/files?path=${encodeURIComponent(folderPath)}`);
         setFiles(files.filter(f => f.path !== folderPath));
       }
-    } catch (error) {
-      console.error('Failed to delete file:', error);
-    }
+    }, { startLoading, stopLoading });
   };
 
   const handleDownloadDirectory = async (dirPath: string) => {
-    try {
-      setLoading(true);
+    return withLoading(async () => {
       const response = await axios.get(`/api/files?path=${encodeURIComponent(dirPath)}&zip=true`, {
         responseType: 'blob',
       });
@@ -119,11 +99,7 @@ const FileBrowser = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch (error) {
-      console.error('Failed to download directory:', error);
-    } finally {
-      setLoading(false);
-    }
+    }, { startLoading, stopLoading });
   };
 
   const formatFileSize = (bytes: number) => {
@@ -326,13 +302,6 @@ const FileBrowser = () => {
                 )}
               </div>
             </div>
-
-            {/* Loading indicator */}
-            {loading && (
-              <div className="flex justify-center items-center h-32">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              </div>
-            )}
 
             {/* File list */}
             <FileList

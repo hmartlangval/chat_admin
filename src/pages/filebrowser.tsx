@@ -76,6 +76,19 @@ const FileBrowser = () => {
     }
   };
 
+  const handleDelete = async (folderPath: string) => {
+    try {
+      const confirmDelete = window.confirm(`Are you sure you want to delete the folder: ${folderPath}?`);
+      if (!confirmDelete) {
+        return;
+      }
+      await axios.delete(`/api/files?path=${encodeURIComponent(folderPath)}`);
+      setFiles(files.filter(f => f.path !== folderPath));
+    } catch (error) {
+      console.error('Failed to delete file:', error); 
+    }
+  };
+
   const handleDownloadDirectory = async (dirPath: string) => {
     try {
       setLoading(true);
@@ -290,6 +303,7 @@ const FileBrowser = () => {
               onFolderClick={handleFolderClick}
               onFileDownload={handleDownload}
               onFolderDownload={handleDownloadDirectory}
+              onDelete={handleDelete}
               expandedFolders={expandedFolders}
             />
           </div>

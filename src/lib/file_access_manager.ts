@@ -282,4 +282,18 @@ export class FileAccessManager {
         const orderPath = path.join(this.basePath, folder, 'actions_order.json');
         this.writeFile(orderPath, JSON.stringify(order, null, 2));
     }
+
+    public async deleteFile(filePath: string): Promise<void> {
+        const fullPath = path.join(this.basePath, filePath);
+        if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+        }
+    }
+
+    public async deleteFolder(folderPath: string): Promise<void> {
+        const fullPath = path.join(this.basePath, folderPath);
+        if (fs.existsSync(fullPath)) {
+            fs.rmdirSync(fullPath, { recursive: true });
+        }
+    }   
 } 

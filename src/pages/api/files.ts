@@ -45,7 +45,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       return res.status(500).json({ error: 'Internal server error' });
     }
-  } else {
+  } 
+  else if (req.method === 'DELETE') {
+    const { path: folder } = req.query;
+    try {
+      await fileManager.deleteFolder(folder as string);
+      return res.status(200).json({ message: 'File deleted successfully' });
+    } catch (error: any) {
+      console.error('File deletion error:', error);
+      return res.status(500).json({ error: 'Failed to delete file' });
+    }
+  }
+
+  else {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 } 

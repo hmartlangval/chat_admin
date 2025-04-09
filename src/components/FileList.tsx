@@ -10,6 +10,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon as ChevronRightIcon2
 } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/16/solid';
 
 interface FileItem {
   name: string;
@@ -27,6 +28,7 @@ interface FileListProps {
   onFolderClick: (file: FileItem) => Promise<void>;
   onFileDownload: (path: string) => Promise<void>;
   onFolderDownload: (path: string) => Promise<void>;
+  onDelete: (path: string) => Promise<void>;
   expandedFolders: Set<string>;
   level?: number;
 }
@@ -36,6 +38,7 @@ const FileList = ({
   onFolderClick,
   onFileDownload,
   onFolderDownload,
+  onDelete,
   expandedFolders,
   level = 0
 }: FileListProps) => {
@@ -67,7 +70,7 @@ const FileList = ({
 
   const getFileIcon = (fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
-    
+
     switch (extension) {
       case 'pdf':
         return <DocumentTextIcon className="h-5 w-5 text-red-500" />;
@@ -95,13 +98,12 @@ const FileList = ({
       <div className="divide-y divide-gray-200">
         {currentItems.map((file) => {
           const isExpanded = expandedFolders.has(file.path);
-          
+
           return (
             <div key={file.path}>
-              <div 
-                className={`px-6 py-3 hover:bg-gray-50 cursor-pointer flex items-center justify-between text-sm ${
-                  file.isDirectory ? 'bg-yellow-50 hover:bg-yellow-100' : ''
-                }`}
+              <div
+                className={`px-6 py-3 hover:bg-gray-50 cursor-pointer flex items-center justify-between text-sm ${file.isDirectory ? 'bg-yellow-50 hover:bg-yellow-100' : ''
+                  }`}
                 style={{ paddingLeft: `${level * 20 + 24}px` }}
                 onClick={() => {
                   if (file.isDirectory) {
@@ -114,7 +116,7 @@ const FileList = ({
                 <div className="flex items-center space-x-3">
                   {file.isDirectory ? (
                     <>
-                      <ChevronRightIcon 
+                      <ChevronRightIcon
                         className={`h-5 w-5 text-yellow-500 transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                       />
                       <FolderIcon className="h-5 w-5 text-yellow-500" />
@@ -131,25 +133,34 @@ const FileList = ({
                     )}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2 text-xs text-gray-500">
                     <span>{formatFileSize(file.size)}</span>
                     <span>•</span>
                     <span>{formatDate(file.modified)}</span>
                   </div>
-                  <div 
+                  <div
                     className="flex space-x-2"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {file.isDirectory ? (
-                      <button
-                        onClick={() => onFolderDownload(file.path)}
-                        className="text-gray-500 hover:text-purple-600 p-1"
-                        title="Download as ZIP"
-                      >
-                        <ArrowDownTrayIcon className="h-4 w-4" />
-                      </button>
+                      <>
+                        <button
+                          onClick={() => onFolderDownload(file.path)}
+                          className="text-gray-500 hover:text-purple-600 p-1"
+                          title="Download as ZIP"
+                        >
+                          <ArrowDownTrayIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(file.path)}
+                          className="text-gray-500 hover:text-purple-600 p-1"
+                          title="Delete"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </>
                     ) : (
                       <button
                         onClick={() => onFileDownload(file.path)}
@@ -162,13 +173,14 @@ const FileList = ({
                   </div>
                 </div>
               </div>
-              
+
               {file.isDirectory && isExpanded && file.children && (
                 <FileList
                   items={file.children}
                   onFolderClick={onFolderClick}
                   onFileDownload={onFileDownload}
                   onFolderDownload={onFolderDownload}
+                  onDelete={onDelete}
                   expandedFolders={expandedFolders}
                   level={level + 1}
                 />
@@ -207,11 +219,11 @@ const FileList = ({
             >
               <ChevronLeftIcon className="h-5 w-5" />
             </button>
-            
+
             <span className="text-sm text-gray-700">
               Page {currentPage} of {totalPages}
             </span>
-            
+
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}

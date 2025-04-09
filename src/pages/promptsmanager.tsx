@@ -272,7 +272,7 @@ const PromptsManager: React.FC = () => {
 
     try {
       startLoading();
-        const response = await fetch(`/api/v2/prompts?nocachecode=${uuidv4()}`, {
+      const response = await fetch(`/api/v2/prompts?nocachecode=${uuidv4()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -422,7 +422,7 @@ const PromptsManager: React.FC = () => {
 
     try {
       startLoading();
-        const response = await fetch(`/api/v2/prompts/config?nocachecode=${uuidv4()}`, {
+      const response = await fetch(`/api/v2/prompts/config?nocachecode=${uuidv4()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -490,7 +490,10 @@ const PromptsManager: React.FC = () => {
 
   return (
     <AdminLayout>
-      <div className="container mx-auto px-4 py-8">
+      <p className="text-red-600 text-sm absolute bottom-0 left-0 w-full text-center bg-red-500 text-white z-50 py-2">
+        Prompts and configurations are <b>NOT backed up</b>. Any changes you make is irreversible, save your changes only when you know it is good. Alternately, you may create a new prompt for temporary use until you are OK for production.
+      </p>
+      <div className="container mx-auto px-4 pb-8">
         <h1 className="text-2xl font-bold mb-6">Prompts Manager</h1>
 
         {error && (
@@ -499,8 +502,8 @@ const PromptsManager: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-7 gap-6">
+          <div className="md:col-span-2 lg:col-span-2">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="space-y-6">
                 {/* Tab Controls */}
@@ -717,7 +720,7 @@ const PromptsManager: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    
+
                     <div className="mb-4">
                       <label className="font-medium text-gray-600 block mb-1">Active Scripts</label>
                       <textarea
@@ -754,7 +757,7 @@ const PromptsManager: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="md:col-span-4 lg:col-span-5">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               {selectedPrompt ? (
                 <>

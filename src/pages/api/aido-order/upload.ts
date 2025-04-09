@@ -114,7 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           url: record.url,
           original_filename: record.original_filename,
           file_type: record.file_type,
-          id: record.id,
+          id: record._id.toString(),
           folder_path: record.folder_path
         });
       }

@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Record not found' });
     }
 
-    return res.status(200).json({ record });
+    return res.status(200).json({record});
   } catch (error) {
     console.error('Error fetching record:', error);
     return res.status(500).json({ error: 'Failed to fetch record' });

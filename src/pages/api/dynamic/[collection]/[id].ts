@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!updatedRecord) {
           return res.status(404).json({ error: 'Record not found' });
         }
-        return res.status(200).json({ record: updatedRecord });
+        return res.status(200).json({ record: updatedRecord});
 
       case 'DELETE':
         const deleted = await repo.delete(id);

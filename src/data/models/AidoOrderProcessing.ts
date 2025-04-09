@@ -23,7 +23,7 @@ export class AidoOrderProcessing {
   }
 
   async findById(id: string) {
-    return this.repository.find({ _id: new ObjectId(id) }).then(results => results[0] || null);
+    return await this.repository.findOne({ _id: new ObjectId(id) });
   }
 
   async update(id: string, data: any) {

@@ -52,7 +52,7 @@ export class DynamicRepository<T extends Document = any> {
           updatedAt: now
         } as any
       },
-      { returnDocument: 'after' }
+      { returnDocument: 'after', includeResultMetadata: true }
     );
     return result?.value || null;
   }

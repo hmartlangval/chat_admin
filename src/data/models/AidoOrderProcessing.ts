@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb';
 import { DynamicRepository } from '../../repositories/DynamicRepository';
 
 export class AidoOrderProcessing {
@@ -19,6 +20,10 @@ export class AidoOrderProcessing {
 
   async find(filter: any = {}) {
     return this.repository.find(filter);
+  }
+
+  async findById(id: string) {
+    return this.repository.find({ _id: new ObjectId(id) }).then(results => results[0] || null);
   }
 
   async update(id: string, data: any) {

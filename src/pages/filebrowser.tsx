@@ -3,6 +3,7 @@ import axios from 'axios';
 import FileList from '../components/FileList';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useLoading, withLoading } from '@/contexts/LoadingContext';
+import { v4 as uuidv4 } from 'uuid';
 
 interface FileItem {
   name: string;
@@ -24,7 +25,7 @@ const FileBrowser = () => {
   
   const fetchDirectory = async (path: string = '') => {
     return withLoading(async () => {
-      const response = await axios.get(`/api/files?path=${encodeURIComponent(path)}`);
+      const response = await axios.get(`/api/files?path=${encodeURIComponent(path)}&nocachecode=${uuidv4()}`);
       return response.data;
     }, { startLoading, stopLoading });
   };
@@ -54,7 +55,7 @@ const FileBrowser = () => {
 
   const handleDownload = async (filePath: string) => {
     return withLoading(async () => {
-      const response = await axios.get(`/api/files?path=${encodeURIComponent(filePath)}&download=true`, {
+      const response = await axios.get(`/api/files?path=${encodeURIComponent(filePath)}&download=true&nocachecode=${uuidv4()}`, {
         responseType: 'blob',
       });
 
@@ -74,13 +75,13 @@ const FileBrowser = () => {
         if(paths.length === 0) return;
         const confirmDelete = window.confirm(`WARNING: This action is irreversible. Are you sure you want to delete all the selected folders?`);
         if (!confirmDelete) return;
-        await axios.delete(`/api/files`, { data: { paths } });
+        await axios.delete(`/api/files?nocachecode=${uuidv4()}`, { data: { paths } });
         setFiles(files.filter(f => !paths.includes(f.path)));
       } else {
         if (!folderPath) return;
         const confirmDelete = window.confirm(`WARNING: This action is irreversible. Are you sure you want to delete the folder: ${folderPath}?`);
         if (!confirmDelete) return;
-        await axios.delete(`/api/files?path=${encodeURIComponent(folderPath)}`);
+        await axios.delete(`/api/files?path=${encodeURIComponent(folderPath)}&nocachecode=${uuidv4()}`);
         setFiles(files.filter(f => f.path !== folderPath));
       }
     }, { startLoading, stopLoading });
@@ -88,7 +89,7 @@ const FileBrowser = () => {
 
   const handleDownloadDirectory = async (dirPath: string) => {
     return withLoading(async () => {
-      const response = await axios.get(`/api/files?path=${encodeURIComponent(dirPath)}&zip=true`, {
+      const response = await axios.get(`/api/files?path=${encodeURIComponent(dirPath)}&zip=true&nocachecode=${uuidv4()}`, {
         responseType: 'blob',
       });
 

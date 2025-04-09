@@ -8,6 +8,7 @@ import { settingsCache } from '@/utils/settingsCache';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import { useLoading, withLoading } from '@/contexts/LoadingContext';
+import { v4 as uuidv4 } from 'uuid';
 
 // Initialize markdown parser
 const mdParser = new MarkdownIt({
@@ -93,7 +94,7 @@ const PromptsManager: React.FC = () => {
 
   const fetchFolders = async () => {
     return withLoading(async () => {
-      const response = await fetch('/api/v2/prompts');
+      const response = await fetch(`/api/v2/prompts?nocachecode=${uuidv4()}`);
       if (!response.ok) throw new Error('Failed to fetch folders');
       const data = await response.json();
       setFolders(data.folders);
@@ -115,8 +116,8 @@ const PromptsManager: React.FC = () => {
     try {
       startLoading();
       const [foldersResponse, activeResponse] = await Promise.all([
-        fetch('/api/v2/prompts'),
-        fetch(`/api/v2/prompts/config?folder=${folder}&action=${action}`)
+        fetch(`/api/v2/prompts?nocachecode=${uuidv4()}`),
+        fetch(`/api/v2/prompts/config?nocachecode=${uuidv4()}&folder=${folder}&action=${action}`)
       ]);
 
       if (!foldersResponse.ok) throw new Error('Failed to fetch folders');
@@ -159,7 +160,7 @@ const PromptsManager: React.FC = () => {
 
   const fetchScripts = async () => {
     try {
-      const response = await fetch('/api/v2/prompts/scripts');
+      const response = await fetch(`/api/v2/prompts/scripts?nocachecode=${uuidv4()}`);
       if (!response.ok) throw new Error('Failed to fetch scripts');
       const data = await response.json();
       setScripts(data.scripts);
@@ -271,7 +272,7 @@ const PromptsManager: React.FC = () => {
 
     try {
       startLoading();
-      const response = await fetch('/api/v2/prompts', {
+        const response = await fetch(`/api/v2/prompts?nocachecode=${uuidv4()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -322,7 +323,7 @@ const PromptsManager: React.FC = () => {
 
     try {
       startLoading();
-      const response = await fetch('/api/v2/prompts', {
+      const response = await fetch(`/api/v2/prompts?nocachecode=${uuidv4()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -356,7 +357,7 @@ const PromptsManager: React.FC = () => {
 
     try {
       startLoading();
-      const response = await fetch('/api/v2/prompts', {
+      const response = await fetch(`/api/v2/prompts?nocachecode=${uuidv4()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -421,7 +422,7 @@ const PromptsManager: React.FC = () => {
 
     try {
       startLoading();
-      const response = await fetch('/api/v2/prompts/config', {
+        const response = await fetch(`/api/v2/prompts/config?nocachecode=${uuidv4()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -452,7 +453,7 @@ const PromptsManager: React.FC = () => {
 
     try {
       startLoading();
-      const response = await fetch('/api/v2/prompts/config', {
+      const response = await fetch(`/api/v2/prompts/config?nocachecode=${uuidv4()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

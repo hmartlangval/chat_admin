@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import {
   DocumentIcon,
   DocumentTextIcon,
@@ -26,24 +26,31 @@ interface FileItem {
 interface FileListProps {
   items: FileItem[];
   onFolderClick: (file: FileItem) => Promise<void>;
-  onFileDownload: (path: string) => Promise<void>;
-  onFolderDownload: (path: string) => Promise<void>;
-  onDelete: (path: string) => Promise<void>;
+  onFileDownload: (filePath: string) => Promise<void>;
+  onFolderDownload: (dirPath: string) => Promise<void>;
+  onDelete: (folderPath: string, paths?: string[]) => Promise<void>;
   expandedFolders: Set<string>;
   level?: number;
+  onSelectAll?: () => void;
+  onGetChecked?: () => FileItem[];
+  onSelectionChange?: (count: number) => void;
 }
 
-const FileList = ({
+const FileList = forwardRef(({
   items,
   onFolderClick,
   onFileDownload,
   onFolderDownload,
   onDelete,
   expandedFolders,
-  level = 0
-}: FileListProps) => {
+  level = 0,
+  onSelectAll,
+  onGetChecked,
+  onSelectionChange
+}: FileListProps, ref) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
 
   const totalPages = Math.ceil(items.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -93,6 +100,38 @@ const FileList = ({
     }
   };
 
+  const handleCheckboxChange = (file: FileItem) => {
+    const newCheckedItems = new Set(checkedItems);
+    if (newCheckedItems.has(file.path)) {
+      newCheckedItems.delete(file.path);
+    } else {
+      newCheckedItems.add(file.path);
+    }
+    setCheckedItems(newCheckedItems);
+    onSelectionChange?.(newCheckedItems.size);
+  };
+
+  const handleSelectAll = () => {
+    const newCheckedItems = new Set(currentItems.map(item => item.path));
+    setCheckedItems(newCheckedItems);
+    onSelectionChange?.(newCheckedItems.size);
+  };
+
+  // Clear selected items when items array changes
+  useEffect(() => {
+    setCheckedItems(new Set());
+  }, [itemsPerPage]);
+
+  // Expose methods to parent
+  useEffect(() => {
+    if (ref) {
+      (ref as any).current = {
+        onSelectAll: handleSelectAll,
+        onGetChecked: () => items.filter(item => checkedItems.has(item.path))
+      };
+    }
+  }, [checkedItems, items, ref]);
+
   return (
     <div>
       <div className="divide-y divide-gray-200">
@@ -116,6 +155,15 @@ const FileList = ({
                 <div className="flex items-center space-x-3">
                   {file.isDirectory ? (
                     <>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                        checked={checkedItems.has(file.path)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleCheckboxChange(file);
+                        }}
+                      />
                       <ChevronRightIcon
                         className={`h-5 w-5 text-yellow-500 transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                       />
@@ -147,14 +195,14 @@ const FileList = ({
                     {file.isDirectory ? (
                       <>
                         <button
-                          onClick={() => onFolderDownload(file.path)}
+                          onClick={(e) => { e.stopPropagation(); onFolderDownload(file.path)}}
                           className="text-gray-500 hover:text-purple-600 p-1"
                           title="Download as ZIP"
                         >
                           <ArrowDownTrayIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => onDelete(file.path)}
+                          onClick={(e) => { e.stopPropagation(); onDelete(file.path)}}
                           className="text-gray-500 hover:text-purple-600 p-1"
                           title="Delete"
                         >
@@ -163,7 +211,7 @@ const FileList = ({
                       </>
                     ) : (
                       <button
-                        onClick={() => onFileDownload(file.path)}
+                        onClick={(e) => { e.stopPropagation(); onFileDownload(file.path)}}
                         className="text-gray-500 hover:text-green-600 p-1"
                         title="Download file"
                       >
@@ -236,6 +284,6 @@ const FileList = ({
       )}
     </div>
   );
-};
+});
 
 export default FileList; 

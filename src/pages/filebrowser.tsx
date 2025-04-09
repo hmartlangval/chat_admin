@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import FileList from '../components/FileList';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -18,7 +18,9 @@ const FileBrowser = () => {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-
+  const [checkedCount, setCheckedCount] = useState(0);
+  const fileListRef = useRef<any>(null);
+  
   const fetchDirectory = async (path: string = '') => {
     try {
       setLoading(true);
@@ -63,7 +65,7 @@ const FileBrowser = () => {
       const response = await axios.get(`/api/files?path=${encodeURIComponent(filePath)}&download=true`, {
         responseType: 'blob',
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -76,16 +78,30 @@ const FileBrowser = () => {
     }
   };
 
-  const handleDelete = async (folderPath: string) => {
+  const handleDelete = async (folderPath: string, paths?: string[]) => {
     try {
-      const confirmDelete = window.confirm(`Are you sure you want to delete the folder: ${folderPath}?`);
-      if (!confirmDelete) {
-        return;
+      if (paths) {
+        if(paths.length === 0) return;
+        const confirmDelete = window.confirm(`WARNING: This action is irreversible. Are you sure you want to delete all the selected folders?`);
+        if (!confirmDelete) {
+          return;
+        }
+        await axios.delete(`/api/files`, {
+          data: { paths }
+        });
+        setFiles(files.filter(f => !paths.includes(f.path)));
       }
-      await axios.delete(`/api/files?path=${encodeURIComponent(folderPath)}`);
-      setFiles(files.filter(f => f.path !== folderPath));
+      else {
+        if (!folderPath) return;
+        const confirmDelete = window.confirm(`WARNING: This action is irreversible. Are you sure you want to delete the folder: ${folderPath}?`);
+        if (!confirmDelete) {
+          return;
+        }
+        await axios.delete(`/api/files?path=${encodeURIComponent(folderPath)}`);
+        setFiles(files.filter(f => f.path !== folderPath));
+      }
     } catch (error) {
-      console.error('Failed to delete file:', error); 
+      console.error('Failed to delete file:', error);
     }
   };
 
@@ -95,7 +111,7 @@ const FileBrowser = () => {
       const response = await axios.get(`/api/files?path=${encodeURIComponent(dirPath)}&zip=true`, {
         responseType: 'blob',
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -130,13 +146,12 @@ const FileBrowser = () => {
 
   const renderFileItem = (file: FileItem, level: number = 0) => {
     const isExpanded = expandedFolders.has(file.path);
-    
+
     return (
       <div key={file.path}>
-        <div 
-          className={`px-6 py-3 hover:bg-gray-50 cursor-pointer flex items-center justify-between text-sm ${
-            file.isDirectory ? 'bg-yellow-50 hover:bg-yellow-100' : ''
-          }`}
+        <div
+          className={`px-6 py-3 hover:bg-gray-50 cursor-pointer flex items-center justify-between text-sm ${file.isDirectory ? 'bg-yellow-50 hover:bg-yellow-100' : ''
+            }`}
           style={{ paddingLeft: `${level * 20 + 24}px` }}
           onClick={() => {
             if (file.isDirectory) {
@@ -148,30 +163,30 @@ const FileBrowser = () => {
         >
           <div className="flex items-center space-x-3">
             {file.isDirectory ? (
-              <svg 
+              <svg
                 className={`h-5 w-5 text-yellow-500 transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                fill="none" 
-                stroke="currentColor" 
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth="2" 
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
                   d="M9 5l7 7-7 7"
                 />
               </svg>
             ) : (
-              <svg 
-                className="h-5 w-5 text-gray-400" 
-                fill="none" 
-                stroke="currentColor" 
+              <svg
+                className="h-5 w-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth="2" 
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
                   d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                 />
               </svg>
@@ -180,7 +195,7 @@ const FileBrowser = () => {
               {file.name}
             </span>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-xs text-gray-500">
               <span>{formatFileSize(file.size)}</span>
@@ -226,7 +241,7 @@ const FileBrowser = () => {
             </div>
           </div>
         </div>
-        
+
         {file.isDirectory && isExpanded && file.children && (
           <div>
             {file.children.map(child => renderFileItem(child, level + 1))}
@@ -252,11 +267,11 @@ const FileBrowser = () => {
             <div className="px-6 py-4 border-b border-gray-200">
               <h1 className="text-xl font-medium text-gray-900">File Browser</h1>
             </div>
-            
+
             {/* Breadcrumb */}
             <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
               <div className="flex items-center text-sm">
-                <button 
+                <button
                   onClick={() => {
                     setCurrentPath('');
                     setExpandedFolders(new Set());
@@ -269,6 +284,28 @@ const FileBrowser = () => {
                   className="text-blue-600 hover:text-blue-800 font-medium"
                 >
                   Root
+                </button>
+                <button
+                  onClick={() => {
+                    if (fileListRef.current && fileListRef.current.onSelectAll) {
+                      fileListRef.current.onSelectAll();
+                    }
+                  }}
+                  className="ml-4 text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => {
+                    if (fileListRef.current && fileListRef.current.onGetChecked) {
+                      const checkedItems = fileListRef.current.onGetChecked().map((item: any) => item.path);
+                      handleDelete("", checkedItems);
+                    }
+                  }}
+                  disabled={checkedCount === 0}
+                  className={`ml-4 text-blue-600 hover:text-blue-800 font-medium ${checkedCount === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  Delete Selected
                 </button>
                 {currentPath && (
                   <>
@@ -299,12 +336,14 @@ const FileBrowser = () => {
 
             {/* File list */}
             <FileList
+              ref={fileListRef}
               items={files}
               onFolderClick={handleFolderClick}
               onFileDownload={handleDownload}
               onFolderDownload={handleDownloadDirectory}
               onDelete={handleDelete}
               expandedFolders={expandedFolders}
+              onSelectionChange={setCheckedCount}
             />
           </div>
         </div>

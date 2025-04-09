@@ -48,8 +48,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } 
   else if (req.method === 'DELETE') {
     const { path: folder } = req.query;
+    const { paths } = req.body;
     try {
-      await fileManager.deleteFolder(folder as string);
+      if (paths && Array.isArray(paths)) {
+        for (const path of paths) {
+          await fileManager.deleteFolder(path as string);
+        }
+      } else {
+        await fileManager.deleteFolder(folder as string);
+      }
       return res.status(200).json({ message: 'File deleted successfully' });
     } catch (error: any) {
       console.error('File deletion error:', error);

@@ -29,6 +29,7 @@ interface Action {
   activeSystemPrompt?: string;
   activeInstructionPrompt?: string;
   requires_browser?: boolean;
+  disable_browser_config?: boolean;
   prompt_scripts?: string[];
 }
 
@@ -139,6 +140,7 @@ const PromptsManager: React.FC = () => {
                   activeSystemPrompt: activeData.activeSystemPrompt,
                   activeInstructionPrompt: activeData.activeInstructionPrompt,
                   requires_browser: activeData.requires_browser,
+                  disable_browser_config: activeData.disable_browser_config,
                   prompt_scripts: activeData.prompt_scripts
                 };
               }
@@ -597,6 +599,7 @@ const PromptsManager: React.FC = () => {
                           <label className="text-base font-medium text-gray-600">Requires Browser</label>
                           <input
                             type="checkbox"
+                            disabled={currentAction?.disable_browser_config}
                             checked={currentAction?.requires_browser || false}
                             onChange={(e) => handleToggleRequiresBrowser(e.target.checked)}
                             className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"

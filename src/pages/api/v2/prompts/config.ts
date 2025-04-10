@@ -9,6 +9,7 @@ interface Config {
             activeInstructionPrompt: string;
             output_formatting?: string;
             requires_browser?: boolean;
+            disable_browser_config?: boolean;
             prompt_scripts?: string[];
         };
     };

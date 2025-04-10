@@ -54,6 +54,20 @@ interface Channel {
   messages: ChatMessage[];
 }
 
+interface BotTasks {
+  id: string;
+  name: string;
+  status: string;
+  startTime: string;
+  endTime?: string;
+  result?: any
+}
+
+interface BotState {
+  tasks: BotTasks[];
+  [x:string]: any;
+}
+
 // Global variable to store Socket.IO server instance
 let io: SocketIOServer;
 
@@ -61,6 +75,19 @@ let io: SocketIOServer;
 const channels = new Map<string, Channel>();
 // Make channels available globally
 (global as any).channels = channels;
+
+// Global clients map to track all connected clients
+const clients = new Map<string, {
+  id: string;
+  botId?: string;
+  name?: string;
+  type?: string;
+  botState?: BotState;
+  window_hwnd?: number;
+  commands?: any;
+}>();
+// Make clients available globally
+(global as any).clients = clients;
 
 // Create a global map to store shared data (for backward compatibility)
 const sharedDataStore = new Map<string, SharedData>();
@@ -179,13 +206,25 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       console.log('Client connected:', socket.id);
       
       // Bot registration
-      socket.on('register', (data: { botId: string; name: string; type?: string; commands?: any; window_hwnd?: number }) => {
+      socket.on('register', (data: { botId: string; name: string; type?: string; commands?: any; window_hwnd?: number; bot_state?: any }) => {
         console.log('Bot registered:', data);
         socket.data.botId = data.botId;
         socket.data.name = data.name;
         socket.data.type = data.type || 'bot';
         socket.data.commands = data.commands || {};
         socket.data.window_hwnd = data.window_hwnd || 0;
+        socket.data.bot_state = data.bot_state || {};
+        
+        // Add client to global clients map
+        clients.set(socket.id, {
+          id: socket.id,
+          botId: data.botId,
+          name: data.name,
+          type: data.type || 'bot',
+          commands: data.commands || {},
+          window_hwnd: data.window_hwnd || 0,
+          botState: data.bot_state || {}
+        });
         
         // Broadcast to all clients that a new bot is available
         io.emit('bot_registered', {
@@ -193,7 +232,8 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           name: data.name,
           type: data.type || 'bot',
           window_hwnd: data.window_hwnd || 0,
-          commands: data.commands || {}
+          commands: data.commands || {},
+          botState: data.bot_state || {}
         });
       });
 
@@ -275,6 +315,37 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             timestamp: Date.now()
           });
         }
+      });
+
+      socket.on('bot_state_updated', (data: { botId: string, botState: BotState }) => {
+        // console.log(`State update for bot: ${data.botId}, state: ${JSON.stringify(data.botState)}`);
+        
+        // Update the client's state in the global clients map
+        let updated = false;
+        clients.forEach((client) => {
+          if (client.botId === data.botId) {
+            client.botState = data.botState;
+            updated = true;
+          }
+        });
+
+        // console.log('Clients:', clients);
+        // clients.forEach((client) => {
+        //   console.log('Client:', client.botState);
+        // });
+
+        // If no client found with this botId, log a warning
+        if (!updated) {
+          console.warn(`No client found with botId: ${data.botId}`);
+          return;
+        }
+        
+        // Broadcast the state update to all connected clients
+        io.emit('bot_state_updated', {
+          botId: data.botId,
+          botState: data.botState,
+          timestamp: Date.now()
+        });
       });
 
       // Chat message
@@ -593,6 +664,9 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       // Disconnect handling
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
+        
+        // Remove client from global clients map
+        clients.delete(socket.id);
         
         // Handle any cleanup needed
         channels.forEach((channel, channelId) => {

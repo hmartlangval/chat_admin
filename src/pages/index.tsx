@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { StartTaskButtonBasic } from '../components/StartTaskButtonBasic';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import ParticipantActionModal from '../components/Channel/ParticipantActionModal';
+import { DeveloperTestingButton } from '@/components/DeveloperTestingButton';
 
 // Define message type for admin UI
 interface Message {
@@ -55,7 +56,7 @@ export default function Home() {
   const [dataModalOpen, setDataModalOpen] = useState<boolean>(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState<boolean>(false);
-  
+
   // Participant action modal state
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [participantModalOpen, setParticipantModalOpen] = useState<boolean>(false);
@@ -146,16 +147,16 @@ export default function Home() {
     };
 
     // Add commands based on participant type
-    const enhancedParticipant = { 
+    const enhancedParticipant = {
       ...participant,
       // Add commands based on participant type and existing commands
-      commands: participant.type === 'bot' 
+      commands: participant.type === 'bot'
         ? { ...standardBotCommands, ...participant.commands }  // Use existing commands or provide defaults
-        : participant.window_hwnd 
+        : participant.window_hwnd
           ? { sendMessage: "^m", close: "^{F4}" } // Generic commands for non-bot windows 
           : {}
     };
-    
+
     setSelectedParticipant(enhancedParticipant);
     setParticipantModalOpen(true);
   };
@@ -163,7 +164,7 @@ export default function Home() {
   // Handle retry click
   const handleRetryClick = (message: Message) => {
     if (!isConnected) return;
-    
+
     // Ask for confirmation before proceeding
     const confirmRetry = window.confirm('Are you sure you want to retry this message?');
     if (!confirmRetry) return;
@@ -234,11 +235,11 @@ export default function Home() {
 
       // Split content into parts by both JSON data and Retry tags
       const parts = processedContent.split(/(\[JSON data\])|(\[Retry\])/);
-      
+
       // Filter out empty strings and map each part to appropriate React component
       return parts.filter(Boolean).map((part, idx) => {
         if (part === '[JSON data]') {
-          const jsonId = `inline-json-${Math.floor(idx/2)}`;
+          const jsonId = `inline-json-${Math.floor(idx / 2)}`;
           return (
             <React.Fragment key={`json-${idx}`}>
               <span>[</span>
@@ -264,18 +265,18 @@ export default function Home() {
         } else if (part === '[Retry]' && message) {
           return (
             <>[
-            <a
-              key={`retry-${idx}`}
-              href="#"
-              className="text-blue-600 underline"
-              onClick={(e) => {
-                e.preventDefault();
-                handleRetryClick(message);
-              }}
-            >
-              Retry
-            </a>
-            ]</>
+              <a
+                key={`retry-${idx}`}
+                href="#"
+                className="text-blue-600 underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleRetryClick(message);
+                }}
+              >
+                Retry
+              </a>
+              ]</>
           );
         }
         return <span key={`text-${idx}`}>{part}</span>;
@@ -386,23 +387,23 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center space-x-2">
-            {channelStatus.active ? (
-                  <button
-                    onClick={() => handleChannelOperation('stop')}
-                    className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-yellow-500"
-                    disabled={!isConnected}
-                  >
-                    Stop Channel
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleChannelOperation('start')}
-                    className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500"
-                    disabled={!isConnected}
-                  >
-                    Start Channel
-                  </button>
-                )}              
+              {channelStatus.active ? (
+                <button
+                  onClick={() => handleChannelOperation('stop')}
+                  className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-yellow-500"
+                  disabled={!isConnected}
+                >
+                  Stop Channel
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleChannelOperation('start')}
+                  className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-green-500"
+                  disabled={!isConnected}
+                >
+                  Start Channel
+                </button>
+              )}
             </div>
           </div>
           {wsError && (
@@ -423,13 +424,12 @@ export default function Home() {
                   channelStatus.participants.map((participant) => {
                     const isBot = participant.type === 'bot';
                     const hasWindow = !!participant.window_hwnd;
-                    
+
                     return (
-                      <div 
-                        key={participant.id} 
-                        className={`p-1.5 rounded text-xs cursor-pointer transition-colors flex justify-between items-center ${
-                          isBot ? 'bg-blue-50 hover:bg-blue-100' : 'bg-gray-50 hover:bg-gray-100'
-                        }`}
+                      <div
+                        key={participant.id}
+                        className={`p-1.5 rounded text-xs cursor-pointer transition-colors flex justify-between items-center ${isBot ? 'bg-blue-50 hover:bg-blue-100' : 'bg-gray-50 hover:bg-gray-100'
+                          }`}
                         onClick={() => handleParticipantClick(participant)}
                         title={`Click to manage participant ${isBot ? 'and send commands' : ''}`}
                       >
@@ -531,6 +531,22 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex space-x-1 ml-2">
+                {process.env.NEXT_PUBLIC_SHOW_DEV_BUTTON === 'true' && (
+                  <>
+                    <DeveloperTestingButton
+                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                      isChannelActive={channelStatus.active}
+                      message="@pmtestrecipient start a task"
+                      buttonText="Start Task"
+                    />
+                    <DeveloperTestingButton
+                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                      isChannelActive={channelStatus.active}
+                      message="@pmtestsender check if available for new task"
+                      buttonText="Check Availability"
+                    />
+                  </>
+                )}
                 <StartTaskButtonBasic
                   className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
                   isChannelActive={channelStatus.active}
@@ -541,7 +557,7 @@ export default function Home() {
                 >
                   Clear
                 </button>
-                
+
               </div>
             </div>
 

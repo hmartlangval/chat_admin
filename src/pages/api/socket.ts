@@ -29,7 +29,7 @@ interface Participant {
   commands?: {
     restart?: string;
     remove?: string;
-    [x:string]: string | undefined;
+    [x: string]: string | undefined;
   }
 }
 
@@ -65,7 +65,7 @@ interface BotTasks {
 
 interface BotState {
   tasks: BotTasks[];
-  [x:string]: any;
+  [x: string]: any;
 }
 
 // Global variable to store Socket.IO server instance
@@ -136,21 +136,21 @@ async function loadMetadata(): Promise<SharedDataMetadata[]> {
 // Initialize the data directory at startup
 (async () => {
   await ensureDataDirExists();
-  
+
   // Load existing data from MongoDB into memory store for backward compatibility
   try {
     const allData = await sharedDataRepository.getAllData();
-    
+
     for (const item of allData) {
       let content = '';
-      
+
       // For small text files, load the content into memory if needed
       if ((item.type === 'string' || item.type === 'json') && item.filePath) {
         try {
           // Extract filename from the URL
           const fileName = path.basename(new URL(item.filePath).pathname);
           const localFilePath = path.join(DATA_DIR, fileName);
-          
+
           if (fs.existsSync(localFilePath)) {
             content = await fsPromises.readFile(localFilePath, 'utf8');
           }
@@ -158,7 +158,7 @@ async function loadMetadata(): Promise<SharedDataMetadata[]> {
           console.error(`Error loading file for ${item.dataId}:`, err);
         }
       }
-      
+
       sharedDataStore.set(item.dataId, {
         id: item.dataId,
         type: item.type as any,
@@ -168,7 +168,7 @@ async function loadMetadata(): Promise<SharedDataMetadata[]> {
         senderId: item.senderId
       });
     }
-    
+
     console.log(`Loaded ${allData.length} shared data items from MongoDB`);
   } catch (err) {
     console.error('Error loading data from MongoDB:', err);
@@ -185,7 +185,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
 
   try {
     console.log('Setting up Socket.IO server...');
-    
+
     // Configure Socket.IO with generous CORS settings
     io = new SocketIOServer(res.socket.server, {
       path: '/api/socket',
@@ -198,13 +198,13 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       },
       transports: ['websocket', 'polling'],
     });
-    
+
     // Store the io instance on the server object
     res.socket.server.io = io;
 
     io.on('connection', (socket: Socket) => {
       console.log('Client connected:', socket.id);
-      
+
       // Bot registration
       socket.on('register', (data: { botId: string; name: string; type?: string; commands?: any; window_hwnd?: number; bot_state?: any }) => {
         console.log('Bot registered:', data);
@@ -214,7 +214,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
         socket.data.commands = data.commands || {};
         socket.data.window_hwnd = data.window_hwnd || 0;
         socket.data.bot_state = data.bot_state || {};
-        
+
         // Add client to global clients map
         clients.set(socket.id, {
           id: socket.id,
@@ -225,7 +225,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           window_hwnd: data.window_hwnd || 0,
           botState: data.bot_state || {}
         });
-        
+
         // Broadcast to all clients that a new bot is available
         io.emit('bot_registered', {
           botId: data.botId,
@@ -241,28 +241,28 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       socket.on('join_channel', (channelId: string) => {
         console.log(`${socket.data.name || socket.id} joining channel: ${channelId}`);
         socket.join(`channel:${channelId}`);
-        
+
         // Get channel or create if doesn't exist
         if (!channels.has(channelId)) {
           console.log(`Creating new channel: ${channelId}`);
-          channels.set(channelId, { 
+          channels.set(channelId, {
             participants: new Set<Participant>(),
             active: true,
             messages: []
           });
         }
-        
+
         const channel = channels.get(channelId);
         if (channel) {
           const participantId = socket.data.botId || socket.id;
-          
+
           // Remove any existing participant with the same ID
           channel.participants.forEach((p: Participant) => {
             if (p.id === participantId) {
               channel.participants.delete(p);
             }
           });
-          
+
           // Add the new participant
           const participant: Participant = {
             id: participantId,
@@ -271,9 +271,9 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             commands: socket.data.commands || {},
             window_hwnd: socket.data.window_hwnd || 0  // Include window handle
           };
-          
+
           channel.participants.add(participant);
-          
+
           // Notify all participants in the channel
           io.to(`channel:${channelId}`).emit('participant_joined', {
             participantId: participantId,
@@ -283,7 +283,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             commands: socket.data.commands || {},
             timestamp: Date.now()
           });
-          
+
           // Notify the client about the channel status
           socket.emit('channel_status', {
             channelId,
@@ -298,7 +298,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       socket.on('leave_channel', (channelId: string) => {
         console.log(`${socket.data.name || socket.id} leaving channel: ${channelId}`);
         socket.leave(`channel:${channelId}`);
-        
+
         const channel = channels.get(channelId);
         if (channel) {
           // Remove participant from the channel
@@ -307,7 +307,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
               channel.participants.delete(participant);
             }
           });
-          
+
           // Notify all participants in the channel
           io.to(`channel:${channelId}`).emit('participant_left', {
             participantId: socket.data.botId || socket.id,
@@ -319,7 +319,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
 
       socket.on('bot_state_updated', (data: { botId: string, botState: BotState }) => {
         // console.log(`State update for bot: ${data.botId}, state: ${JSON.stringify(data.botState)}`);
-        
+
         // Update the client's state in the global clients map
         let updated = false;
         clients.forEach((client) => {
@@ -339,7 +339,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           console.warn(`No client found with botId: ${data.botId}`);
           return;
         }
-        
+
         // Broadcast the state update to all connected clients
         io.emit('bot_state_updated', {
           botId: data.botId,
@@ -348,23 +348,58 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
         });
       });
 
+      /**
+       * When a bot inquires about another bot's availability, it checks the server state
+       * and emits a private message in response, using the request_id as a conversation id.
+       */
+      socket.on('enquire_bot_state', (data: { targetBotId: string, msg_id: string }) => {
+        console.log(`Enquiring about availability of bot: ${data.targetBotId}`);
+        const botClient = Array.from(clients.values()).find(client => client.botId === data.targetBotId);
+       
+        console.log('we are sending and replying to socket with id:', socket.id)
+        io.to(socket.id).emit('private-message', {
+          msg_type: 'response',
+          msg_id: data.msg_id,
+          data: botClient?.botState || undefined
+        });
+    
+      });
+
       // Chat message
+      socket.on('private-bot', async (message: {
+        targetBotIds: string[],
+        msg_type?: string,
+        data: any
+      }) => {
+        // Find the clients with botId = targetBotId
+        const targetClients = Array.from(clients.values()).filter(client => message.targetBotIds.includes(client.botId || ''));
+
+        targetClients.forEach(client => {
+          io.to(client.id).emit('private-message', {
+            senderId: socket.data.botId || socket.id,
+            msg_type: message.msg_type || 'standard',
+            data: message.data,
+            timestamp: Date.now()
+          });
+        });
+      })
+
       socket.on('message', async (message: { channelId: string; content: string, senderName: string, senderId: string }) => {
         console.log(`Message from ${socket.data.name || socket.id}:`, message.content);
-        
+
         const channelId = message.channelId;
         let channel = channels.get(channelId);
-        
+
         // Automatically create and activate the channel if it doesn't exist
         if (!channel) {
           console.log(`Auto-creating channel for message: ${channelId}`);
-          channel = { 
+          channel = {
             participants: new Set<Participant>(),
             active: true,
             messages: []
           };
           channels.set(channelId, channel);
-          
+
           // Make sure the sender is in the channel
           const participant: Participant = {
             id: message.senderId || socket.data.botId || socket.id,
@@ -375,19 +410,19 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           };
           channel.participants.add(participant);
         }
-        
+
         // Auto-activate the channel if inactive but has a message
         if (!channel.active) {
           console.log(`Auto-activating inactive channel: ${channelId}`);
           channel.active = true;
-          
+
           // Notify participants that the channel is now active
           io.to(`channel:${channelId}`).emit('channel_started', {
             channelId,
             timestamp: Date.now()
           });
         }
-        
+
         // Use the unified message processing function
         const enrichedMessage = await processMessage(
           channelId,
@@ -398,60 +433,60 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           channel,
           'websocket'
         );
-        
+
         // Broadcast to all in the channel
         io.to(`channel:${channelId}`).emit('new_message', enrichedMessage);
       });
 
       // Data sharing event
-      socket.on('share_data', async (data: { 
-        channelId: string; 
-        content: string; 
-        type?: 'string' | 'image' | 'document' | 'json' 
+      socket.on('share_data', async (data: {
+        channelId: string;
+        content: string;
+        type?: 'string' | 'image' | 'document' | 'json'
       }, callback: (response: { dataId: string, error?: string }) => void) => {
         try {
           console.log(`Data share request from ${socket.data.name || socket.id} in channel ${data.channelId}`);
-          
+
           // Validate input
           if (!data.content) {
             return callback({ dataId: '', error: 'Content is required' });
           }
-          
+
           // Generate a unique ID for the data
           const dataId = `data_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
           const type = data.type || 'string'; // Default to string if not specified
-          
+
           // Ensure data directory exists
           await ensureDataDirExists();
-          
+
           // Determine file extension based on type
           let fileExt = '.txt';
           if (type === 'json') fileExt = '.json';
           else if (type === 'image') fileExt = '.png'; // Default, might be overridden for base64 images
           else if (type === 'document') fileExt = '.txt';
-          
+
           // Determine the file path
           const fileName = `${dataId}${fileExt}`;
           let filePath = path.join(DATA_DIR, fileName);
           let content = data.content;
           let originalSize = Buffer.byteLength(content, 'utf8');
-          
+
           // Special handling for image data URLs
           if (type === 'image' && content.startsWith('data:image/')) {
             const matches = content.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
             if (matches && matches.length === 3) {
               const imageType = matches[1];
               const base64Data = matches[2];
-              
+
               // Update file extension based on actual image type
               fileExt = `.${imageType}`;
               const updatedFileName = `${dataId}${fileExt}`;
               filePath = path.join(DATA_DIR, updatedFileName);
-              
+
               // Convert base64 to binary for file storage
               const buffer = Buffer.from(base64Data, 'base64');
               originalSize = buffer.length;
-              
+
               // Write the binary data to file
               await fsPromises.writeFile(filePath, buffer);
               console.log(`Image saved to ${filePath}`);
@@ -465,11 +500,11 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             await fsPromises.writeFile(filePath, content);
             console.log(`Data saved to ${filePath}`);
           }
-          
+
           // Create the full URL for storage (will be used for future cloud storage)
           const serverUrl = process.env.SERVER_URL || 'http://localhost:3000';
           const fileUrl = `${serverUrl}/api/data/files/${path.basename(filePath)}`;
-          
+
           // Save metadata to MongoDB
           await sharedDataRepository.saveData({
             dataId,
@@ -481,7 +516,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             metadata: {},
             createdAt: Date.now()
           });
-          
+
           // Add to in-memory store as well for backward compatibility
           const sharedData: SharedData = {
             id: dataId,
@@ -491,10 +526,10 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             timestamp: Date.now(),
             senderId: socket.data.botId || socket.id
           };
-          
+
           sharedDataStore.set(dataId, sharedData);
           console.log(`Data stored with ID: ${dataId}, file: ${filePath}`);
-          
+
           // Return the data ID to the client
           callback({ dataId });
         } catch (error: any) {
@@ -502,9 +537,9 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
           callback({ dataId: '', error: error.message || 'Unknown error processing data' });
         }
       });
-      
+
       // Data retrieval event
-      socket.on('get_data', async (dataId: string, callback: (data: { 
+      socket.on('get_data', async (dataId: string, callback: (data: {
         id: string;
         type: string;
         content: string;
@@ -513,10 +548,10 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       }) => void) => {
         try {
           console.log(`Data retrieval request for ID: ${dataId}`);
-          
+
           // Try to get from MongoDB first
           const dataMetadata = await sharedDataRepository.getDataById(dataId);
-          
+
           if (!dataMetadata) {
             // Fallback to in-memory store for backward compatibility
             if (!sharedDataStore.has(dataId)) {
@@ -528,7 +563,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
                 error: 'Data not found'
               });
             }
-            
+
             const data = sharedDataStore.get(dataId)!;
             return callback({
               id: data.id,
@@ -537,17 +572,17 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
               timestamp: data.timestamp
             });
           }
-          
+
           // Data found in MongoDB, handle accordingly
           // Extract filename from the URL
           let content = '';
           const parsedUrl = new URL(dataMetadata.filePath);
           const fileName = path.basename(parsedUrl.pathname);
           const localFilePath = path.join(DATA_DIR, fileName);
-          
+
           // For text-based content, read the file
-          if ((dataMetadata.type === 'string' || dataMetadata.type === 'json') && 
-              fs.existsSync(localFilePath)) {
+          if ((dataMetadata.type === 'string' || dataMetadata.type === 'json') &&
+            fs.existsSync(localFilePath)) {
             try {
               content = await fsPromises.readFile(localFilePath, 'utf8');
             } catch (err: any) {
@@ -561,7 +596,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
               });
             }
           }
-          
+
           callback({
             id: dataMetadata.dataId,
             type: dataMetadata.type,
@@ -583,9 +618,9 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       // Channel operations
       socket.on('start_channel', (channelId: string) => {
         console.log(`Starting channel: ${channelId}`);
-        
+
         if (!channels.has(channelId)) {
-          channels.set(channelId, { 
+          channels.set(channelId, {
             participants: new Set<Participant>(),
             active: true,
             messages: []
@@ -598,7 +633,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
             channel.messages = [];
           }
         }
-        
+
         io.to(`channel:${channelId}`).emit('channel_started', {
           channelId,
           timestamp: Date.now()
@@ -607,12 +642,12 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
 
       socket.on('stop_channel', (channelId: string) => {
         console.log(`Stopping channel: ${channelId}`);
-        
+
         if (channels.has(channelId)) {
           const channel = channels.get(channelId);
           if (channel) {
             channel.active = false;
-            
+
             io.to(`channel:${channelId}`).emit('channel_stopped', {
               channelId,
               timestamp: Date.now()
@@ -624,7 +659,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       // Get channel details
       socket.on('get_channel_details', (channelId: string, callback: (data: any) => void) => {
         const channel = channels.get(channelId);
-        
+
         if (channel) {
           callback({
             channelId,
@@ -646,7 +681,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       // Get channel messages
       socket.on('get_channel_messages', (channelId: string, callback: (data: any) => void) => {
         const channel = channels.get(channelId);
-        
+
         if (channel) {
           callback({
             channelId,
@@ -664,19 +699,19 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
       // Disconnect handling
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
-        
+
         // Remove client from global clients map
         clients.delete(socket.id);
-        
+
         // Handle any cleanup needed
         channels.forEach((channel, channelId) => {
           const participantId = socket.data.botId || socket.id;
-          
+
           // Remove this participant from the channel
           channel.participants.forEach((participant: Participant) => {
             if (participant.id === participantId) {
               channel.participants.delete(participant);
-              
+
               // Notify others that this participant left
               io.to(`channel:${channelId}`).emit('participant_left', {
                 participantId: participantId,
@@ -693,7 +728,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
         console.error('Socket error:', error);
       });
     });
-    
+
     console.log('Socket.IO server started');
     res.status(200).json({ message: 'Socket.IO server initialized' });
   } catch (error: any) {

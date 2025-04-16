@@ -32,11 +32,11 @@ export default async function handler(
         const filters: any = {};
         if (status) filters.status = status;
         if (queue) filters.queue = queue;
-        if (orderNumber) filters['order_info.extracted_data.order_number'] = orderNumber;
+        if (orderNumber) filters.orderNumber = orderNumber;
 
         const repo = new QueueRepository();
-        // const allqueues = await repo.getAllData(limit, skip, filters);
-        const allqueues = await repo.getAllData(limit, skip);
+        const allqueues = await repo.getAllData(limit, skip, filters);
+        // const allqueues = await repo.getAllData(limit, skip);
 
         // Get total count for pagination with filters
         const total = await repo.getAllData(undefined, undefined);

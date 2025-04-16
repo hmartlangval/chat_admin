@@ -3,7 +3,6 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import Head from 'next/head';
 import { NextPage } from 'next';
 import { useLoading, withLoading } from '@/contexts/LoadingContext';
-import { LoadingOverlay } from '@/components/LoadingOverlay';
 
 type QueueRecord = {
     _id: string;
@@ -28,6 +27,11 @@ type PaginationInfo = {
 const QueuePage: NextPage = () => {
     const [queueData, setQueueData] = useState<QueueRecord[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [filters, setFilters] = useState({
+        status: '',
+        orderNumber: '',
+        queue: ''
+    });
     const [pagination, setPagination] = useState<PaginationInfo>({
         currentPage: 1,
         totalPages: 1,
@@ -39,7 +43,15 @@ const QueuePage: NextPage = () => {
     const fetchQueueData = async (page: number = 1) => {
         return withLoading(async () => {
             try {
-                const response = await fetch(`/api/v2/queue?page=${page}&limit=${pagination.limit}`);
+                const params = new URLSearchParams();
+                params.append('page', page.toString());
+                params.append('limit', pagination.limit.toString());
+
+                if (filters.status) params.append('status', filters.status);
+                if (filters.orderNumber) params.append('orderNumber', filters.orderNumber);
+                if (filters.queue) params.append('queue', filters.queue);
+
+                const response = await fetch(`/api/v2/queue?${params.toString()}`);
                 if (!response.ok) {
                     throw new Error('Failed to fetch queue data');
                 }
@@ -55,6 +67,18 @@ const QueuePage: NextPage = () => {
             }
         }, { startLoading, stopLoading });
     };
+
+    const handleFilterChange = (key: keyof typeof filters, value: string) => {
+        setFilters(prev => ({
+            ...prev,
+            [key]: value
+        }));
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
+    };
+
+    useEffect(() => {
+        fetchQueueData(1);
+    }, [filters, pagination.limit]);
 
     useEffect(() => {
         fetchQueueData();
@@ -80,7 +104,7 @@ const QueuePage: NextPage = () => {
             <div className="h-[calc(100vh-3rem)] flex flex-col p-6">
                 <div className="flex-1 bg-white rounded-lg shadow">
                     <div className="px-6 py-4 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-4">
                             <h1 className="text-xl font-medium text-gray-900">Queue Management</h1>
                             <button
                                 onClick={() => fetchQueueData(pagination.currentPage)}
@@ -91,6 +115,46 @@ const QueuePage: NextPage = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
                             </button>
+                        </div>
+                        <div className="flex items-center space-x-4">
+
+                            <div className="flex items-center space-x-2">
+                                <label className="text-sm text-gray-500">Order #:</label>
+                                <input
+                                    type="text"
+                                    value={filters.orderNumber}
+                                    onChange={(e) => handleFilterChange('orderNumber', e.target.value)}
+                                    placeholder="Search order number"
+                                    className="text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <label className="text-sm text-gray-500">Queue:</label>
+                                <select
+                                    value={filters.queue}
+                                    onChange={(e) => handleFilterChange('queue', e.target.value)}
+                                    className="text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                >
+                                    <option value="">All</option>
+                                    <option value="fileprep_tax">FilePrep Tax</option>
+                                    <option value="fileprep_property">FilePrep Property</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <label className="text-sm text-gray-500">Status:</label>
+                                <select
+                                    value={filters.status}
+                                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                                    className="text-sm border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                >
+                                    <option value="">All</option>
+                                    <option value="queued">Queued</option>
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                    <option value="failed">Failed</option>
+                                </select>
+                            </div>                            
                         </div>
                     </div>
 
@@ -119,11 +183,10 @@ const QueuePage: NextPage = () => {
                                                 </td>
                                                 <td className="px-6 py-3 text-gray-900">{record.refId}</td>
                                                 <td className="px-6 py-3">
-                                                    <span className={`px-2 py-1 rounded-full text-xs ${
-                                                        record.status === 'queued' ? 'bg-yellow-100 text-yellow-800' :
-                                                        record.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                                    }`}>
+                                                    <span className={`px-2 py-1 rounded-full text-xs ${record.status === 'queued' ? 'bg-yellow-100 text-yellow-800' :
+                                                            record.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                                'bg-gray-100 text-gray-800'
+                                                        }`}>
                                                         {record.status}
                                                     </span>
                                                 </td>

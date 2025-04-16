@@ -34,9 +34,9 @@ const menuItems: MenuItem[] = [
     children: []
   },
   {
-    name: 'Tasks',
+    name: 'Queue',
     icon: ClipboardDocumentListIcon,
-    path: '/tasks',
+    path: '/queue',
     children: []
   },
   {

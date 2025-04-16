@@ -67,4 +67,8 @@ export class DynamicRepository<T extends Document = any> {
     const collection = await this.init();
     return collection.find(filter).toArray();
   }
+  async findOne(filter: any = {}, options: any = {}): Promise<WithId<T> | null> {
+    const collection = await this.init();
+    return collection.findOne(filter, options);
+  }
 } 

@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { DynamicRepository } from '../../../../lib/repositories/DynamicRepository';
+import { ObjectId } from 'mongodb';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { collection, id } = req.query;
@@ -16,6 +17,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     switch (req.method) {
+      case 'GET':
+        const record = await repo.findOne({ _id: new ObjectId(id) });
+        if (!record) {
+          return res.status(404).json({ error: 'Record not found' });
+        }
+        return res.status(200).json({ record });
+
       case 'PUT':
         const data = req.body;
         if (!data) {
@@ -35,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: true });
 
       default:
-        res.setHeader('Allow', ['PUT', 'DELETE']);
+        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error: any) {

@@ -8,6 +8,7 @@ export interface Task {
     startedDateTime?: string;
     refId: string;
     endedDateTime?: string;
+    assignee?: string;
 }
 
 export interface Queue extends Task {

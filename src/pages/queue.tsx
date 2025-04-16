@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import Head from 'next/head';
 import { NextPage } from 'next';
 import { useLoading, withLoading } from '@/contexts/LoadingContext';
+import axios from 'axios';
 
 type QueueRecord = {
     _id: string;
     refId: string;
     status: string;
     queue: string;
+    assignee?: string;
     order_info?: {
         extracted_data?: {
             order_number?: string;
@@ -39,6 +41,13 @@ const QueuePage: NextPage = () => {
         limit: 10
     });
     const { startLoading, stopLoading } = useLoading();
+    const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; record: QueueRecord | null }>({
+        visible: false,
+        x: 0,
+        y: 0,
+        record: null
+    });
+    const contextMenuRef = useRef<HTMLDivElement>(null);
 
     const fetchQueueData = async (page: number = 1) => {
         return withLoading(async () => {
@@ -98,6 +107,63 @@ const QueuePage: NextPage = () => {
         }));
         fetchQueueData();
     };
+
+    const handleContextMenu = (e: React.MouseEvent, record: QueueRecord) => {
+        e.preventDefault();
+        setContextMenu({
+            visible: true,
+            x: e.clientX,
+            y: e.clientY,
+            record
+        });
+    };
+
+    const handleRetry = async (record: QueueRecord) => {
+        try {
+            const unaccepted = ['in_progress']
+            if (unaccepted.includes(record.status))
+            {
+                alert('You cannot retry the task in its current state.')
+                return;
+            }
+
+            // update the record to queued state
+            const up = await axios.put(`/api/dynamic/tasks/${record._id}`, {
+                status: 'queued'
+            })
+            
+            if(record.assignee && record.refId) {
+                const resp = await axios.get(`/api/aido-order/${record.refId}`).then(r => r.data)
+                const extracted_data = resp?.record?.extracted_data;
+                if (extracted_data) {
+                    const d = {...extracted_data, ...{ action_type: 'start', retry_id: record._id }}
+                    const response = await axios.post(`/api/v2/sendMessage?channelId=general`, {
+                        content: `@${record.assignee} Retry [json]${JSON.stringify(d)}[/json]`
+                    });
+                }
+            }
+
+            // Refresh the queue data
+            fetchQueueData(pagination.currentPage);
+
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An error occurred while retrying the task');
+            console.error('Error retrying task:', err);
+        }
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+                setContextMenu(prev => ({ ...prev, visible: false }));
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     return (
         <AdminLayout>
@@ -170,38 +236,67 @@ const QueuePage: NextPage = () => {
                                         <tr className="border-b border-gray-200 bg-gray-50">
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Order Number</th>
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Task ID</th>
-                                            <th className="px-6 py-3 text-left text-gray-900 font-medium">Reference ID</th>
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Status</th>
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Queue</th>
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Created</th>
+                                            <th className="px-6 py-3 text-left text-gray-900 font-medium">Assignee</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {queueData.map((record) => (
-                                            <tr key={record._id} className="border-b border-gray-200 hover:bg-gray-50">
+                                            <tr 
+                                                key={record._id} 
+                                                className={`border-b border-gray-200 ${
+                                                    contextMenu.visible && contextMenu.record?._id === record._id 
+                                                        ? 'bg-blue-50' 
+                                                        : 'hover:bg-gray-50'
+                                                }`}
+                                                onContextMenu={(e) => handleContextMenu(e, record)}
+                                            >
                                                 <td className="px-6 py-3 text-gray-900">
                                                     {record.order_info?.extracted_data?.order_number || '-'}
                                                 </td>
                                                 <td className="px-6 py-3 text-gray-900">{record._id}</td>
-                                                <td className="px-6 py-3 text-gray-900">{record.refId}</td>
                                                 <td className="px-6 py-3">
-                                                    <span className={`px-2 py-1 rounded-full text-xs ${record.status === 'queued' ? 'bg-yellow-100 text-yellow-800' :
-                                                            record.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                                'bg-gray-100 text-gray-800'
-                                                        }`}>
+                                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                                        record.status === 'queued' ? 'bg-yellow-100 text-yellow-800' :
+                                                        record.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                    }`}>
                                                         {record.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-3 text-gray-900">{record.queue}</td>
                                                 <td className="px-6 py-3 text-gray-900">
                                                     {new Date(record.createdAt).toLocaleString()}
-                                                    {/* {new Date(record.createdAt).toLocaleTimeString()} */}
                                                 </td>
+                                                <td className="px-6 py-3 text-gray-900">{record.assignee}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
+
+                            {contextMenu.visible && contextMenu.record && (
+                                <div
+                                    ref={contextMenuRef}
+                                    className="fixed bg-white shadow-lg rounded-md py-1 z-50"
+                                    style={{
+                                        top: contextMenu.y,
+                                        left: contextMenu.x
+                                    }}
+                                >
+                                    <button
+                                        onClick={() => {
+                                            handleRetry(contextMenu.record!);
+                                            setContextMenu(prev => ({ ...prev, visible: false }));
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
+                            )}
 
                             <div className="flex items-center justify-between px-6 py-3 border-t">
                                 <div className="flex items-center space-x-4">

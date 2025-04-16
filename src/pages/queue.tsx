@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import Head from 'next/head';
 import { NextPage } from 'next';
+import { useLoading, withLoading } from '@/contexts/LoadingContext';
+import { LoadingOverlay } from '@/components/LoadingOverlay';
 
 type QueueRecord = {
     _id: string;
@@ -25,7 +27,6 @@ type PaginationInfo = {
 
 const QueuePage: NextPage = () => {
     const [queueData, setQueueData] = useState<QueueRecord[]>([]);
-    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pagination, setPagination] = useState<PaginationInfo>({
         currentPage: 1,
@@ -33,26 +34,26 @@ const QueuePage: NextPage = () => {
         totalRecords: 0,
         limit: 10
     });
+    const { startLoading, stopLoading } = useLoading();
 
     const fetchQueueData = async (page: number = 1) => {
-        try {
-            setLoading(true);
-            const response = await fetch(`/api/v2/queue?page=${page}&limit=${pagination.limit}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch queue data');
+        return withLoading(async () => {
+            try {
+                const response = await fetch(`/api/v2/queue?page=${page}&limit=${pagination.limit}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch queue data');
+                }
+                const data = await response.json();
+                setQueueData(data.records);
+                setPagination(prev => ({
+                    ...prev,
+                    ...data.pagination
+                }));
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'An error occurred');
+                console.error('Error fetching queue data:', err);
             }
-            const data = await response.json();
-            setQueueData(data.records);
-            setPagination(prev => ({
-                ...prev,
-                ...data.pagination
-            }));
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
-            console.error('Error fetching queue data:', err);
-        } finally {
-            setLoading(false);
-        }
+        }, { startLoading, stopLoading });
     };
 
     useEffect(() => {
@@ -78,21 +79,28 @@ const QueuePage: NextPage = () => {
         <AdminLayout>
             <div className="h-[calc(100vh-3rem)] flex flex-col p-6">
                 <div className="flex-1 bg-white rounded-lg shadow">
-                    {loading && (
-                        <div className="p-4 text-center text-gray-500">Loading queue data...</div>
-                    )}
-                    
+                    <div className="px-6 py-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <h1 className="text-xl font-medium text-gray-900">Queue Management</h1>
+                            <button
+                                onClick={() => fetchQueueData(pagination.currentPage)}
+                                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                                title="Refresh data"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
                     {error && (
                         <div className="p-4 text-center text-red-500">{error}</div>
                     )}
 
-                    {!loading && !error && (
+                    {!error && (
                         <>
-                            <div className="px-6 py-4 border-b border-gray-200">
-                                <h1 className="text-xl font-medium text-gray-900">Queue Management</h1>
-                            </div>
-
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto relative">
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="border-b border-gray-200 bg-gray-50">

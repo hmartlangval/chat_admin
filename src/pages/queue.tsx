@@ -77,10 +77,6 @@ const QueuePage: NextPage = () => {
     return (
         <AdminLayout>
             <div className="h-[calc(100vh-3rem)] flex flex-col p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-xl font-semibold">Queue Management</h1>
-                </div>
-
                 <div className="flex-1 bg-white rounded-lg shadow">
                     {loading && (
                         <div className="p-4 text-center text-gray-500">Loading queue data...</div>

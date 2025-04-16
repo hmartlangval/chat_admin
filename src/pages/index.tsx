@@ -486,12 +486,12 @@ export default function Home() {
               </div>
               <div className="space-y-1.5 mb-2">
                 <a
-                  href="/tasks"
+                  href="/queue"
                   className="block text-sm text-indigo-700 hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Tasks
+                  Task Queue
                 </a>
               </div>
               <div className="space-y-1.5 mb-2">

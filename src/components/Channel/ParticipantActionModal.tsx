@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useWebSocket } from '../../contexts/WebSocketContext';
+import axios from 'axios';
 
 interface ParticipantActionModalProps {
   isOpen: boolean;
@@ -18,7 +19,8 @@ const ParticipantActionModal: React.FC<ParticipantActionModalProps> = ({
   onClose,
   participant,
 }) => {
-  const { activeChannel, isConnected } = useWebSocket();
+  // const { activeChannel, isConnected } = useWebSocket();
+  const activeChannel = "general"
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -56,7 +58,7 @@ const ParticipantActionModal: React.FC<ParticipantActionModalProps> = ({
         },
         body: JSON.stringify(messageContent),
       });
-    } catch {}
+    } catch { }
   }
 
   const handleCancel = async () => {
@@ -85,6 +87,23 @@ const ParticipantActionModal: React.FC<ParticipantActionModalProps> = ({
     } catch (error) {
       console.error('Error sending cancel command:', error);
     }
+  };
+
+  const handleStartNext = async () => {
+    if (!participant) return;
+
+    try {
+      const response = await axios.post(`/api/v2/sendMessage?channelId=${activeChannel}`, {
+        content: `@${participant.id} Start Next Message [json]${JSON.stringify({ action_type: 'start' })}[/json]`
+      });
+      console.log('Start Next Message sent to channel general.');
+
+      if (onClose) onClose()
+        
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+
   };
 
   const isBot = participant.type === 'task_bot';
@@ -125,16 +144,26 @@ const ParticipantActionModal: React.FC<ParticipantActionModalProps> = ({
         <div className="mt-2 pt-2 border-t border-gray-100">
           <h4 className="text-xs font-medium text-gray-500 mb-1.5">Actions</h4>
           {isBot ? (
-            <button
-              onClick={handleCancel}
-              className="px-3 py-1 bg-red-100 text-red-600 hover:bg-red-200 text-xs rounded-md transition-colors font-medium"
-            >
-              Cancel Task
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleStartNext}
+                className="px-3 py-1 bg-green-500 text-white hover:bg-green-700 text-xs rounded-md transition-colors font-medium"
+              >
+                Start Next Task
+              </button>
+              <button
+                onClick={handleCancel}
+                className="px-3 py-1 bg-red-300 text-black-600 hover:bg-red-200 text-xs rounded-md transition-colors font-medium"
+              >
+                Cancel Task
+              </button>
+            </div>
+
           ) : (
             <div className="text-xs text-gray-500 italic">No actions available</div>
           )}
         </div>
+
       </div>
     </div>
   );

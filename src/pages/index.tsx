@@ -4,6 +4,7 @@ import { StartTaskButtonBasic } from '../components/StartTaskButtonBasic';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import ParticipantActionModal from '../components/Channel/ParticipantActionModal';
 import { DeveloperTestingButton } from '@/components/DeveloperTestingButton';
+import { StatusCheckButton } from '@/components/StatusCheckButton';
 
 // Define message type for admin UI
 interface Message {
@@ -533,20 +534,21 @@ export default function Home() {
               <div className="flex space-x-1 ml-2">
                 {process.env.NEXT_PUBLIC_SHOW_DEV_BUTTON === 'true' && (
                   <>
-                    <DeveloperTestingButton
+                    {/* <DeveloperTestingButton
                       className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
                       isChannelActive={channelStatus.active}
-                      message="@pmtestrecipient start a task"
+                      message="@ttc start a task"
                       buttonText="Start Task"
-                    />
-                    <DeveloperTestingButton
+                    /> */}
+                    {/* <DeveloperTestingButton
                       className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
                       isChannelActive={channelStatus.active}
-                      message="@pmtestsender check if available for new task"
+                      message="@ttc check if available for new task"
                       buttonText="Check Availability"
-                    />
+                    /> */}
                   </>
                 )}
+                <StatusCheckButton/>
                 <StartTaskButtonBasic
                   className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
                   isChannelActive={channelStatus.active}
@@ -557,7 +559,6 @@ export default function Home() {
                 >
                   Clear
                 </button>
-
               </div>
             </div>
 

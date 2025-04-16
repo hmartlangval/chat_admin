@@ -169,6 +169,7 @@ const QueuePage: NextPage = () => {
                                     <thead>
                                         <tr className="border-b border-gray-200 bg-gray-50">
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Order Number</th>
+                                            <th className="px-6 py-3 text-left text-gray-900 font-medium">Task ID</th>
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Reference ID</th>
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Status</th>
                                             <th className="px-6 py-3 text-left text-gray-900 font-medium">Queue</th>
@@ -181,6 +182,7 @@ const QueuePage: NextPage = () => {
                                                 <td className="px-6 py-3 text-gray-900">
                                                     {record.order_info?.extracted_data?.order_number || '-'}
                                                 </td>
+                                                <td className="px-6 py-3 text-gray-900">{record._id}</td>
                                                 <td className="px-6 py-3 text-gray-900">{record.refId}</td>
                                                 <td className="px-6 py-3">
                                                     <span className={`px-2 py-1 rounded-full text-xs ${record.status === 'queued' ? 'bg-yellow-100 text-yellow-800' :

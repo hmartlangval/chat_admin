@@ -68,6 +68,15 @@ interface BotState {
   [x: string]: any;
 }
 
+export interface ISocketClients {
+  id: string;
+  botId?: string;
+  name?: string;
+  type?: string;
+  botState?: BotState;
+  window_hwnd?: number;
+  commands?: any;
+}
 // Global variable to store Socket.IO server instance
 let io: SocketIOServer;
 
@@ -77,15 +86,7 @@ const channels = new Map<string, Channel>();
 (global as any).channels = channels;
 
 // Global clients map to track all connected clients
-const clients = new Map<string, {
-  id: string;
-  botId?: string;
-  name?: string;
-  type?: string;
-  botState?: BotState;
-  window_hwnd?: number;
-  commands?: any;
-}>();
+const clients = new Map<string, ISocketClients>();
 // Make clients available globally
 (global as any).clients = clients;
 
@@ -201,6 +202,7 @@ export default function handler(req: NextApiRequest, res: SocketIONextApiRespons
 
     // Store the io instance on the server object
     res.socket.server.io = io;
+    res.socket.server.clients = clients;
 
     io.on('connection', (socket: Socket) => {
       console.log('Client connected:', socket.id);

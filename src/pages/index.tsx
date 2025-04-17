@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { StartTaskButtonBasic } from '../components/StartTaskButtonBasic';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import ParticipantActionModal from '../components/Channel/ParticipantActionModal';
+import { StartTaskButtonForm } from '@/components/StartTaskButtonForm';
 
 // Define message type for admin UI
 interface Message {
@@ -531,7 +532,11 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex space-x-1 ml-2">
-                <StartTaskButtonBasic
+                {/* <StartTaskButtonBasic
+                  className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                  isChannelActive={channelStatus.active}
+                /> */}
+                <StartTaskButtonForm
                   className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
                   isChannelActive={channelStatus.active}
                 />

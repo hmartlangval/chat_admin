@@ -40,7 +40,7 @@ const BotControl: React.FC<BotControlProps> = ({
   // Fetch the status of the bot
   const fetchBotStatus = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/bots/${botId}`);
+      const response = await fetch(`/api/v2/bots/${botId}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.bot) {
@@ -69,7 +69,7 @@ const BotControl: React.FC<BotControlProps> = ({
   const handleStart = async () => {
     setLoading('start');
     try {
-      const response = await fetch(`http://localhost:5000/api/bots/${botId}/start`, {
+      const response = await fetch(`/api/v2/bots/${botId}/start`, {
         method: 'POST',
       });
       
@@ -94,7 +94,7 @@ const BotControl: React.FC<BotControlProps> = ({
   const handleStop = async () => {
     setLoading('stop');
     try {
-      const response = await fetch(`http://localhost:5000/api/bots/${botId}/stop`, {
+      const response = await fetch(`/api/v2/bots/${botId}/stop`, {
         method: 'POST',
       });
       
@@ -119,7 +119,7 @@ const BotControl: React.FC<BotControlProps> = ({
   const handleRestart = async () => {
     setLoading('restart');
     try {
-      const response = await fetch(`http://localhost:5000/api/bots/${botId}/restart`, {
+      const response = await fetch(`/api/v2/bots/${botId}/restart`, {
         method: 'POST',
       });
       

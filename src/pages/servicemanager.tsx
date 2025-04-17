@@ -83,7 +83,7 @@ export default function ServiceManager() {
         const fetchBots = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch('http://localhost:5000/api/bots');
+                const response = await fetch('/api/v2/bots');
                 if (response.ok) {
                     const data = await response.json();
                     if (data.bots) {

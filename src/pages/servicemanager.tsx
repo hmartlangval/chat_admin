@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import MaintainanceMode from '@/components/Admin/MaintainanceMode';
+import BotControl from '@/components/Admin/BotControl';
 
 interface Command {
     id: string;
@@ -8,6 +9,17 @@ interface Command {
     command: string;
     status: 'running' | 'stopped';
     pid?: number;
+}
+
+interface Bot {
+    botId: string;
+    botName: string;
+    status: string;
+    botInstanceType: string;
+    botType: string;
+    options: any;
+    creator: string;
+    channel: string;
 }
 
 interface Notification {
@@ -51,8 +63,10 @@ const getCommandsFromEnv = (): Command[] => {
 
 export default function ServiceManager() {
     const [commands, setCommands] = useState<Command[]>(getCommandsFromEnv());
+    const [bots, setBots] = useState<Bot[]>([]);
     const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
     const [notification, setNotification] = useState<Notification | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Show notification for 4 seconds
     useEffect(() => {
@@ -63,6 +77,38 @@ export default function ServiceManager() {
             return () => clearTimeout(timer);
         }
     }, [notification]);
+
+    // Fetch bots on load
+    useEffect(() => {
+        const fetchBots = async () => {
+            setIsLoading(true);
+            try {
+                const response = await fetch('http://localhost:5000/api/bots');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.bots) {
+                        setBots(data.bots);
+                    }
+                } else {
+                    console.error('Failed to fetch bots');
+                    setNotification({ 
+                        message: 'Failed to fetch bots. Is the bot server running?',
+                        type: 'error'
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching bots:', error);
+                setNotification({ 
+                    message: 'Error connecting to bot server. Is it running?',
+                    type: 'error'
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchBots();
+    }, []);
 
     // Check status of processes on load
     useEffect(() => {
@@ -174,7 +220,110 @@ export default function ServiceManager() {
     const hold_till_work_is_done = true;
     if (hold_till_work_is_done) {
         return (
-            <MaintainanceMode title="Service Manager" />
+            <AdminLayout>
+                <div className="h-[calc(100vh-3rem)] flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-xl font-semibold">Bot Control Panel</h1>
+                        </div>
+                    </div>
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-yellow-700">
+                                    This is an adhoc solution to fix service bots freezing up or not responding (in case it occurs). You can always <b>try Cancelling tasks</b> first from the main screen by clicking on the respective bot name on the left column. If bot still fails to co-operate, you may use the controls to stop/start/restart.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 bg-white rounded-lg shadow p-6">
+                        {notification && (
+                            <div className={`notification ${notification.type}`}>
+                                {notification.message}
+                            </div>
+                        )}
+                        
+                        {isLoading ? (
+                            <div className="flex justify-center items-center h-64">
+                                <div className="loader"></div>
+                                <p className="ml-3">Loading bots...</p>
+                            </div>
+                        ) : bots.length === 0 ? (
+                            <div className="text-center p-8">
+                                <p>No bots found. Is the bot server running?</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {bots.map(bot => (
+                                    <div key={bot.botId} className="bot-card">
+                                        <h3 className="text-lg font-medium mb-3">{bot.botName}</h3>
+                                        <div className="text-sm text-gray-500 mb-3">
+                                            <p>Type: {bot.botType}</p>
+                                            <p>Instance: {bot.botInstanceType}</p>
+                                        </div>
+                                        <BotControl
+                                            botId={bot.botId}
+                                            botName={bot.botName}
+                                            initialStatus={bot.status}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <style jsx>{`
+                    .notification {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 10px 15px;
+                        border-radius: 4px;
+                        color: white;
+                        font-size: 14px;
+                        z-index: 1000;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                    }
+
+                    .notification.success {
+                        background-color: #0078d4;
+                        border-left: 4px solid #106ebe;
+                    }
+
+                    .notification.error {
+                        background-color: #a4262c;
+                        border-left: 4px solid #8e1b21;
+                    }
+                    
+                    .bot-card {
+                        background-color: #f9f9f9;
+                        border-radius: 8px;
+                        padding: 16px;
+                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+                    }
+                    
+                    .loader {
+                        border: 4px solid #f3f3f3;
+                        border-top: 4px solid #3498db;
+                        border-radius: 50%;
+                        width: 30px;
+                        height: 30px;
+                        animation: spin 1s linear infinite;
+                    }
+                    
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
+            </AdminLayout>
         );
     }
 

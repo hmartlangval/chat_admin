@@ -83,7 +83,9 @@ export default function ServiceManager() {
         const fetchBots = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch('/api/v2/bots');
+                const response = await fetch('/api/v2/bots', {
+                    cache: 'no-cache'
+                });
                 if (response.ok) {
                     const data = await response.json();
                     if (data.bots) {
@@ -115,6 +117,7 @@ export default function ServiceManager() {
         const checkProcessStatus = async () => {
             try {
                 const response = await fetch('/api/command', {
+                    cache: 'no-cache',
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -144,6 +147,7 @@ export default function ServiceManager() {
         setLoading(prev => ({ ...prev, [command.id]: true }));
         try {
             const response = await fetch('/api/command', {
+                cache: 'no-cache',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -180,6 +184,7 @@ export default function ServiceManager() {
         setLoading(prev => ({ ...prev, [command.id]: true }));
         try {
             const response = await fetch('/api/command', {
+                cache: 'no-cache',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

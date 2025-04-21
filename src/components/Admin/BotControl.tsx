@@ -40,7 +40,9 @@ const BotControl: React.FC<BotControlProps> = ({
   // Fetch the status of the bot
   const fetchBotStatus = async () => {
     try {
-      const response = await fetch(`/api/v2/bots/${botId}`);
+      const response = await fetch(`/api/v2/bots/${botId}`, {
+        cache: 'no-cache'
+      });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.bot) {
@@ -71,6 +73,7 @@ const BotControl: React.FC<BotControlProps> = ({
     try {
       const response = await fetch(`/api/v2/bots/${botId}/start`, {
         method: 'POST',
+        cache: 'no-cache'
       });
       
       const data = await response.json();
@@ -96,6 +99,7 @@ const BotControl: React.FC<BotControlProps> = ({
     try {
       const response = await fetch(`/api/v2/bots/${botId}/stop`, {
         method: 'POST',
+        cache: 'no-cache'
       });
       
       const data = await response.json();
@@ -121,6 +125,7 @@ const BotControl: React.FC<BotControlProps> = ({
     try {
       const response = await fetch(`/api/v2/bots/${botId}/restart`, {
         method: 'POST',
+        cache: 'no-cache'
       });
       
       const data = await response.json();

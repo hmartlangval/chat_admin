@@ -476,6 +476,16 @@ export default function Home() {
               </div>
               <div className="space-y-1.5 mb-2">
                 <a
+                  href="/promptsmanager"
+                  className="block text-sm text-indigo-700 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Prompts Manager
+                </a>
+              </div>
+              <div className="space-y-1.5 mb-2">
+                <a
                   href="/servicemanager"
                   className="block text-sm text-indigo-700 hover:underline"
                   target="_blank"
@@ -484,7 +494,7 @@ export default function Home() {
                   Service Manager
                 </a>
               </div>
-              <div className="space-y-1.5 mb-2">
+              {/* <div className="space-y-1.5 mb-2">
                 <a
                   href="/tasks"
                   className="block text-sm text-indigo-700 hover:underline"
@@ -503,7 +513,7 @@ export default function Home() {
                 >
                   Settings
                 </a>
-              </div>
+              </div> */}
             </div>
           </div>
 

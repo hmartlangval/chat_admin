@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import MaintainanceMode from '@/components/Admin/MaintainanceMode';
 import BotControl from '@/components/Admin/BotControl';
-
+import { v4 as uuidv4 } from 'uuid';
 interface Command {
     id: string;
     name: string;
@@ -83,7 +83,7 @@ export default function ServiceManager() {
         const fetchBots = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch('/api/v2/bots', {
+                const response = await fetch('/api/v2/bots?nocache=' + uuidv4(), {
                     cache: 'no-cache'
                 });
                 if (response.ok) {

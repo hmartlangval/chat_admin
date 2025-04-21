@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 interface BotInfo {
   botId: string;
@@ -40,7 +41,7 @@ const BotControl: React.FC<BotControlProps> = ({
   // Fetch the status of the bot
   const fetchBotStatus = async () => {
     try {
-      const response = await fetch(`/api/v2/bots/${botId}`, {
+      const response = await fetch(`/api/v2/bots/${botId}?nocache=${uuidv4()}`, {
         cache: 'no-cache'
       });
       if (response.ok) {
@@ -71,7 +72,7 @@ const BotControl: React.FC<BotControlProps> = ({
   const handleStart = async () => {
     setLoading('start');
     try {
-      const response = await fetch(`/api/v2/bots/${botId}/start`, {
+      const response = await fetch(`/api/v2/bots/${botId}/start?nocache=${uuidv4()}`, {
         method: 'POST',
         cache: 'no-cache'
       });
@@ -97,7 +98,7 @@ const BotControl: React.FC<BotControlProps> = ({
   const handleStop = async () => {
     setLoading('stop');
     try {
-      const response = await fetch(`/api/v2/bots/${botId}/stop`, {
+      const response = await fetch(`/api/v2/bots/${botId}/stop?nocache=${uuidv4()}`, {
         method: 'POST',
         cache: 'no-cache'
       });
@@ -123,7 +124,7 @@ const BotControl: React.FC<BotControlProps> = ({
   const handleRestart = async () => {
     setLoading('restart');
     try {
-      const response = await fetch(`/api/v2/bots/${botId}/restart`, {
+      const response = await fetch(`/api/v2/bots/${botId}/restart?nocache=${uuidv4()}`, {
         method: 'POST',
         cache: 'no-cache'
       });

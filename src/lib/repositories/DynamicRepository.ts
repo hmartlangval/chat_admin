@@ -29,9 +29,10 @@ export class DynamicRepository<T extends Document = any> {
     /** customization for aido-order-processing where the context.id needs to match with the _id of the parent
      * we can do POST save update, but i decided to do just a one time save
      */
+    const thisId = new ObjectId()
     if (data && !Array.isArray(data)) {
       if(data.hasOwnProperty('extracted_data')) {
-        data.extracted_data.context.id = new ObjectId()
+        data.extracted_data.context.id = thisId.toString()
       }
     }
     const records = Array.isArray(data) ? data : [data];
@@ -42,7 +43,7 @@ export class DynamicRepository<T extends Document = any> {
       createdAt: now,
       updatedAt: now,
       isActive: true,
-      _id: record.extracted_data?.context?.id || new ObjectId()
+      _id: thisId
     } as unknown as OptionalUnlessRequiredId<T>));
 
     await collection.insertMany(documents);
